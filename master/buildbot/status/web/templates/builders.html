@@ -13,24 +13,23 @@
 
 <table class="table-1 first-child tablesorter tablesorter-js">
   <thead>
-<tr>
-  <th class="txt-align-left">Builder</th>
-  <th class="txt-align-left">Current jobs</th>
-  <th class="txt-align-left">Last run</th>
-  <th>
-    Status
-  </th>
-  <th>Build Artifacts</th>
-  <th >
-    Force build
-  </th>
-</tr>
+    <tr>
+      <th class="txt-align-left">Builder</th>
+      <th class="txt-align-left">Current jobs</th>
+      <th class="txt-align-left">Last run</th>
+      <th>
+        Status
+      </th>
+      <th>Build Artifacts</th>
+      <th >
+        Force build
+      </th>
+    </tr>
 </thead>
 <tbody>
 {% for b in builders %}
 
     <tr>
-  
     <td class="box txt-align-left">
       <a href="{{ b.link }}">
         {{ b.name|e }}
@@ -121,9 +120,7 @@
       
       <a href="#">
         <span class="notimpl small-txt">Not implemented</span>
- 
       </a>
-      
       
     </td>
     {% if b.build_url %}
@@ -139,11 +136,10 @@
     <td>
       <a href="#">
         <span class="notimpl">Not implemented</span>
- 
       </a>
     </td>
 
-    <td >
+    <td>
       {% if b.force_schedulers != {} %}
       <a class="more-info popup-btn-js" href="#">
       </a>
@@ -151,6 +147,9 @@
           <span class="close-btn">
           </span>
           <h3>Force build</h3>
+          
+              <button class="selected-forcebuild-btn selected-forcebuild-btn-js" >Show dependencies</button>
+          
             {% if authz.advertiseAction('forceBuild', request) and b.force_schedulers != {} %}
               {{ forms.force_build(b.builder_url+"/force"+builder_arg, authz, request, False, force_schedulers=b.force_schedulers,default_props=default_props) }}
             {% endif %}

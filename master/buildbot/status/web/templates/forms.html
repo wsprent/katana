@@ -82,6 +82,7 @@
 {% endmacro %}
 
 {% macro force_build_scheduler_parameter(f, authz, request, sch, default_props) %}
+
     {% if f and not f.hide and (f.fullName != "username" or not authz.authenticated(request)) %}
 
     <div class="row{% for subtype in f.type %} force-{{subtype}}{%endfor%}"{% if f.name %} id="force-{{sch.name}}-{{f.fullName}}"{% endif %}>
@@ -120,6 +121,8 @@
     {% endif %}
     </div>
   {% endif %}      
+
+
 {% endmacro %}
 
 {% macro force_build_one_scheduler(force_url, authz, request, on_all, on_selected, builders, sch, default_props) %}
@@ -153,20 +156,95 @@
         
   {% endif %}
   <input type='hidden' name='forcescheduler' value='{{sch.name}}' />
+  
+  <div class="general">
+
   {% for f in sch.all_fields %}
     {{ force_build_scheduler_parameter(f, authz, request, sch, default_props) }}
   {% endfor %}
-  
+  </div>
+
+  <div class="dependencies">
+    <table class="table-1 m-bottom20"> 
+      <tbody>
+        <tr>
+          <th class="txt-align-left">Dependencies</th>
+          <th class="txt-align-left">Build number</th>
+        </tr>
+        <tr>
+          <td class="txt-align-left">
+            Build androidPlayer
+          </td>
+          <td class="txt-align-left">
+            <select>
+              <option>
+                auto
+              </option>
+              <option>
+                2
+              </option>
+            </select>    
+          </td>
+        </tr>
+        <tr>
+          <td class="txt-align-left">
+            Build androidPlayer
+          </td>
+          <td class="txt-align-left">
+            <select>
+              <option>
+                auto
+              </option>
+              <option>
+                2
+              </option>
+            </select>    
+          </td>
+        </tr>
+        <tr>
+          <td class="txt-align-left">
+            Build androidPlayer
+          </td>
+          <td class="txt-align-left">
+            <select>
+              <option>
+                auto
+              </option>
+              <option>
+                2
+              </option>
+            </select>    
+          </td>
+        </tr>
+        <tr>
+          <td class="txt-align-left">
+            Build androidPlayer
+          </td>
+          <td class="txt-align-left">
+            <select>
+              <option>
+                auto
+              </option>
+              <option>
+                2
+              </option>
+            </select>    
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    
+  </div>
   <input class="grey-btn" type="submit" value="Force Build" />
   
 
  </form>
 {% endmacro %}
 {% macro force_build(force_url, authz, request, on_all=False, on_selected=False, builders=[], force_schedulers={},default_props={}) %}
+
   {% for name, sch in force_schedulers.items() %}
     {{ force_build_one_scheduler(force_url, authz, request, on_all, on_selected, builders, sch, default_props=default_props) }}
   {% endfor %}
-
 {% endmacro %}
 
 {% macro graceful_shutdown(shutdown_url, authz) %}
