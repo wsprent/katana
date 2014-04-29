@@ -51,9 +51,9 @@ ul.building {
     	background-color:#857373;	
 	}
 }
-
+ 
 .progressbar-overlay {
-	background: url("/images/animated-overlay.gif") repeat scroll 0 0 rgba(0, 0, 0, 0);
+	background: url("/images/animated-overlay.gif"+$cacheBust) repeat scroll 0 0 rgba(0, 0, 0, 0);
     height: 100%;
     opacity: 0.11;
 }
