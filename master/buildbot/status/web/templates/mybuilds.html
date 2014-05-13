@@ -1,0 +1,1567 @@
+{% extends 'layout.html' %}
+{% import 'forms.html' as forms %}
+{% import 'submenu.html' as submenu %}
+
+{% set bodyId = 'id="mybuilds_page"' %}
+
+{% block submenu %}
+    {{submenu.buildsubmenu(active_page="userbuilds", pathNum=0, builderName='', buildNumber='', stepName='')}}
+{% endblock %}
+
+
+{% block content %}
+
+<div class="initjson">
+  
+
+<div class="column-1">
+
+    <div class="span-6 column">
+		<h2 class="head-2">
+        	Current builds
+    	</h2>
+		
+		<div role="grid" class="dataTables_wrapper" id="rtCurrentBuildsTable_wrapper"><div class="table-wrapper"><table class="table-1 tablesorter-js tablesorter first-child dataTable" id="rtCurrentBuildsTable">
+      <thead><tr role="row"><th class="txt-align-left sorting" tabindex="0" rowspan="1" colspan="1" style="width: 10%;" aria-label="#: activate to sort column ascending">#</th><th class="txt-align-left sorting" tabindex="0" rowspan="1" colspan="1" style="width: 30%;" aria-label="Current build: activate to sort column ascending">Current build</th><th class="txt-align-left sorting" tabindex="0" rowspan="1" colspan="1" style="width: 35%;" aria-label="Revision: activate to sort column ascending">Revision</th><th class="txt-align-right sorting" tabindex="0" rowspan="1" colspan="1" style="width: 25%;" aria-label="Author: activate to sort column ascending">Author</th></tr></thead><tbody role="alert" aria-live="polite" aria-relevant="all"><tr class="odd"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/48">
+		#48
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	    <ul class="list current-job-js building">
+	    	
+				<li>
+					<div class="builders-status-truncate"><a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/48">#48</a>
+						
+							hg unity
+						
+					</div>
+
+	                <span class="spin-icon animate-spin" style="background-position: 0px 0px;"></span>
+
+					<div class="clear"></div>
+					
+						<div class="percent-outer-js percent-outer" data-etatime="0" data-starttime="1399970644.928396" data-timeelem="true">
+							<span class="time-txt-js time-txt">Elapsed: 55 seconds</span>
+							<div class="percent-inner-js percent-inner" style="width: 100%;">
+								<div class="progressbar-overlay"></div>
+							</div>
+						</div>
+	                
+				</li>
+			
+		</ul>
+	
+
+    
+
+
+
+
+</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            N/A
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">Simon Holm Nielsen</td></tr></tbody></table></div></div>
+
+    	<h2 class="head-2 fl-left">
+            Pending builds requests
+        </h2>
+
+        <button class="removeBuildBtn" id="submitBtn">Remove selected</button>
+        
+        <div role="grid" class="dataTables_wrapper" id="rtPendingBuildsTable_wrapper"><div class="table-wrapper"><table class="table-1 tablesorter-js tablesorter first-child buildqueue-table dataTable" id="rtPendingBuildsTable">
+        <thead>
+          <tr role="row"><th class="txt-align-left sorting" role="columnheader" tabindex="0" aria-controls="rtPendingBuildsTable" rowspan="1" colspan="1" style="width: 30%;" aria-label="Requested at: activate to sort column ascending">Requested at</th><th class="txt-align-left sorting" role="columnheader" tabindex="0" aria-controls="rtPendingBuildsTable" rowspan="1" colspan="1" style="width: 50%;" aria-label="Waiting: activate to sort column ascending">Waiting</th><th class="select-input no-tablesorter-js sorting_disabled txt-align-right" role="columnheader" rowspan="1" colspan="1" style="width: 20%;" aria-label="
+                 
+                  Select all 
+                
+                
+            ">
+                <label for="selectall"> 
+                  Select all 
+                </label>
+                <input type="checkbox" name="checkuncheck" id="selectall">
+            </th></tr>
+        </thead>
+      <tbody role="alert" aria-live="polite" aria-relevant="all"><tr class="odd"><td class="txt-align-left">May 06, 12:20:27</td><td class="txt-align-left">
+
+
+    <span class="waiting-time-js" data-timeelem="true">7 days</span>
+
+
+</td><td class="txt-align-right">
+
+
+
+
+    <input type="checkbox" value="1806" name="cancelselected" class="fi-js fi">
+    <br>
+    <a href="#" class="force-individual-js delete-icon" title="Remove this build"></a>
+</td></tr><tr class="even"><td class="txt-align-left">May 06, 13:49:08</td><td class="txt-align-left">
+
+
+    <span class="waiting-time-js" data-timeelem="true">7 days</span>
+
+
+</td><td class="txt-align-right">
+
+
+
+
+    <input type="checkbox" value="1821" name="cancelselected" class="fi-js fi">
+    <br>
+    <a href="#" class="force-individual-js delete-icon" title="Remove this build"></a>
+</td></tr></tbody></table></div></div>
+
+	</div>
+	<div class="column span-7">    
+    	<h2 class="head-2">
+        	Recent Builds
+    	</h2>
+		 <div role="grid" class="dataTables_wrapper" id="rtBuildsTable_wrapper"><div class="table-wrapper"><table class="table-1 tablesorter-js tablesorter first-child dataTable" id="rtBuildsTable">
+      <thead><tr role="row"><th class="txt-align-left sorting" tabindex="0" rowspan="1" colspan="1" style="width: 5%;" aria-label="#: activate to sort column ascending">#</th><th class="txt-align-left sorting" tabindex="0" rowspan="1" colspan="1" style="width: 20%;" aria-label="Date: activate to sort column ascending">Date</th><th class="txt-align-left sorting" tabindex="0" rowspan="1" colspan="1" style="width: 30%;" aria-label="Revision: activate to sort column ascending">Revision</th><th class="sorting" tabindex="0" rowspan="1" colspan="1" style="width: 35%;" aria-label="Result: activate to sort column ascending">Result</th><th class="txt-align-right sorting" tabindex="0" rowspan="1" colspan="1" style="width: 10%;" aria-label="Slave: activate to sort column ascending">Slave</th></tr></thead><tbody role="alert" aria-live="polite" aria-relevant="all"><tr class="odd"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/47?cellsdk_branch=default&amp;unity_branch=trunk">
+		#47
+	</a>
+
+</td><td class="txt-align-left">April 07, 11:42:47</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/66714312180f23af62a89765bc04e9c411b5b677">66714312180f</a>
+        
+        </li>
+    
+    </ul>
+
+</td><td class="success">
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+</td><td class="txt-align-right">
+
+        mba20
+    
+</td></tr><tr class="even"><td class="txt-align-left">
+
+
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/46?cellsdk_branch=default&amp;unity_branch=trunk">
+		#46
+	</a>
+
+</td><td class="txt-align-left">April 07, 11:30:09</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/66714312180f23af62a89765bc04e9c411b5b677">66714312180f</a>
+        
+        </li>
+    
+    </ul>
+
+</td><td class="success">
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+</td><td class="txt-align-right">
+
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="odd"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/45?cellsdk_branch=default&amp;unity_branch=trunk">
+		#45
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">April 07, 10:30:37</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/66714312180f23af62a89765bc04e9c411b5b677">66714312180f</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="success">
+
+
+
+
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="even"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/44?cellsdk_branch=default&amp;unity_branch=trunk">
+		#44
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">March 31, 11:00:15</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/574dfb56d8c5915beb5f6edd9d60701120b6e91b">574dfb56d8c5</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="success">
+
+
+
+
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="odd"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/43?cellsdk_branch=default&amp;unity_branch=trunk">
+		#43
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">March 18, 10:48:39</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/2ceee77bb35800229a359eaf75a99d137b9c0115">2ceee77bb358</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="success">
+
+
+
+
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="even"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/42?cellsdk_branch=default&amp;unity_branch=trunk">
+		#42
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">March 17, 13:19:18</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/0ca6f716a29fb931118d00c7b6d2006c9d9f187a">0ca6f716a29f</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="success">
+
+
+
+
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="odd"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/41?cellsdk_branch=default&amp;unity_branch=trunk">
+		#41
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">March 17, 13:18:42</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/0ca6f716a29fb931118d00c7b6d2006c9d9f187a">0ca6f716a29f</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="retry">
+
+
+
+
+
+    <span class="hide">retry</span>
+    <span class="status-text">
+     
+        retry
+     
+        lost
+     
+        remote
+     
+        slave
+     
+        hg unity_1
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="even"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/40?cellsdk_branch=default&amp;unity_branch=trunk">
+		#40
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">March 17, 13:16:33</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/0ca6f716a29fb931118d00c7b6d2006c9d9f187a">0ca6f716a29f</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="retry">
+
+
+
+
+
+    <span class="hide">retry</span>
+    <span class="status-text">
+     
+        retry
+     
+        lost
+     
+        remote
+     
+        slave
+     
+        exception
+     
+        slave
+     
+        lost
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="odd"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/39?cellsdk_branch=default&amp;unity_branch=trunk">
+		#39
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">March 17, 12:37:17</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/23216ea03ead637f1216eef7df35f4f7a84da240">23216ea03ead</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="success">
+
+
+
+
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="even"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/38?cellsdk_branch=default&amp;unity_branch=trunk">
+		#38
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">March 17, 11:42:34</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/23216ea03ead637f1216eef7df35f4f7a84da240">23216ea03ead</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="success">
+
+
+
+
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="odd"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/37?cellsdk_branch=default&amp;unity_branch=trunk">
+		#37
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">March 17, 10:56:39</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/f14f104bf226d00fc556cdb3ceebab6483de874b">f14f104bf226</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="success">
+
+
+
+
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="even"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/36?cellsdk_branch=default&amp;unity_branch=trunk">
+		#36
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">March 17, 10:54:03</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/f14f104bf226d00fc556cdb3ceebab6483de874b">f14f104bf226</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="retry">
+
+
+
+
+
+    <span class="hide">retry</span>
+    <span class="status-text">
+     
+        retry
+     
+        lost
+     
+        remote
+     
+        slave
+     
+        exception
+     
+        slave
+     
+        lost
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="odd"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/35?cellsdk_branch=default&amp;unity_branch=trunk">
+		#35
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">February 28, 13:40:41</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/351242de9f6b59886280b4a580ee44886e9a06c2">351242de9f6b</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="success">
+
+
+
+
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="even"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/34?cellsdk_branch=default&amp;unity_branch=trunk">
+		#34
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">February 28, 13:24:22</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/351242de9f6b59886280b4a580ee44886e9a06c2">351242de9f6b</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="success">
+
+
+
+
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr><tr class="odd"><td class="txt-align-left">
+
+
+
+    
+	<a href="http://10.45.6.93:8001/projects/All Branches/builders/All%20Branches%20%3E%20Build%20AndroidPlayer/builds/33?cellsdk_branch=default&amp;unity_branch=trunk">
+		#33
+	</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-left">February 26, 10:01:02</td><td class="txt-align-left">
+    <ul class="revision">
+    
+        <li>
+        <a href="http://mercurial-mirror.hq.unity3d.com/all-unity">unity</a> /
+        trunk /
+        
+            <a href="http://mercurial-mirror.hq.unity3d.com/all-unity/changeset/24bc296cab1f207d2758b1925e1cff27d182c1dd">24bc296cab1f</a>
+        
+        </li>
+    
+    </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="success">
+
+
+
+
+
+    <span class="hide">build</span>
+    <span class="status-text">
+     
+        build
+     
+        successful
+     
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+</td><td class="txt-align-right">
+
+
+
+
+
+
+
+    
+        mba20
+    
+
+
+
+
+
+
+
+
+
+
+</td></tr></tbody></table></div></div>
+
+    </div>
+	</div>
+     	 
+</div>
+{% endblock %}

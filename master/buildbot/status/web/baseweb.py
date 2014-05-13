@@ -46,6 +46,7 @@ from buildbot.status.web.auth import AuthFailResource,AuthzFailResource, LoginRe
 from buildbot.status.web.root import RootPage
 from buildbot.status.web.users import UsersResource
 from buildbot.status.web.change_hook import ChangeHookResource
+from buildbot.status.web.mybuilds import MyBuildsResource
 
 # this class contains the WebStatus class.  Basic utilities are in base.py,
 # and specific pages are each in their own module.
@@ -379,6 +380,7 @@ class WebStatus(service.MultiService):
         self.putChild("logout", LogoutResource())
         self.putChild("login", LoginKatanaResource())
         self.putChild("forms", FormsKatanaResource())
+        self.putChild("mybuilds", MyBuildsResource())
 
 
 
