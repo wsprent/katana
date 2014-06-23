@@ -23,6 +23,21 @@
 	z-index:1000;
 	
 }
+
+.pick-branch {
+	.control-label {
+		@include text-shadow(0 1px 0 #FFFFFF);
+		text-align: left;
+	}
+	.form-control {
+		height:auto;
+		padding: 3px 6px;
+		width: 155px;
+	}
+
+	margin-left: -10px;
+	margin-bottom:10px;
+}
   
 div.force-text .label.question-icon {
 	margin-top: 9px;
