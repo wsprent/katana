@@ -6,7 +6,7 @@
 * @author Simon Holm
 */
 
-@include font-face("katana_icons", font-files("katana_icons/katana_icons.eot?cachebusting=4", "katana_icons/katana_icons.ttf?cachebusting=4"));
+@include font-face("katana_icons", font-files("katana_icons/katana_icons.eot?cachebusting=7", "katana_icons/katana_icons.ttf?cachebusting=7"));
 @include font-face("pacifico", font-files("pacifico/pacifico-webfont.eot?cachebusting=2", "pacifico/pacifico-webfont.ttf?cachebusting=2"));
 @include font-face("leckerlione", font-files("leckerlione/leckerlione-regular-webfont.eot?cachebusting=6", "leckerlione/leckerlione-regular-webfont.ttf?cachebusting=6"));
     
@@ -241,6 +241,61 @@ div.welcome-txt {
 	content: "▼";
 }
 
+.point-of-failure:after {
+    font-family: "katana_icons";
+    content: "";
+    display: inline-block;
+    font-size: 16px;
+    position: relative;
+}
+
+.exclamination-mark:after,
+.check-mark:after {
+	display: inline-block;        
+    font-size: 16px;
+    position: relative;	
+    font-family: "katana_icons";
+}
+
+.check-mark:after {	
+    content: "";    
+    color:#32912e;
+}
+
+.exclamination-mark:after {
+	color:#912E2E;
+	content: "";    	
+}
+
+.question-icon {
+	&:after {
+	 	color: #718396;
+	    content: "";
+	    display: inline-block;
+	    font-family: "katana_icons";
+	    font-size: 16px;
+	    font-weight: normal;
+	    padding: 0 0 0 0;
+	    @include text-shadow(0 1px 0 #FFFFFF);   
+    }
+    &:hover:after {
+		color: #ccc;
+		cursor: pointer;
+	}
+	&.yellow-icon:after {
+		color:#918d2e;
+	}
+}
+
+
+
+span.log-error {
+ color: #FF1212;
+}
+span.log-warning {
+  color: #AD823A;
+}
+
 @media (min-width: $screen-md-min) {
 	h1.logo a {
 		font-size: 29px;
@@ -249,21 +304,4 @@ div.welcome-txt {
 			font-size: 27px;
 		}
 	}
-}
-
-.point-of-failure:after {
-    font-family: "katana_icons";
-    content: "";
-    display: inline-block;
-    padding: 0;
-    font-weight:normal;
-    font-size: 16px;
-    position: relative;
-}
-
-span.log-error {
- color: #FF1212;
-}
-span.log-warning {
-  color: #AD823A;
 }

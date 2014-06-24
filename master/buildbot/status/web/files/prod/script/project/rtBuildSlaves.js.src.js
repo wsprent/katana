@@ -23,7 +23,8 @@ define(['jquery', 'realtimePages', 'helpers', 'dataTables', 'mustache', 'text!te
                 { "mData": null, "bSortable": false},
                 { "mData": null, "bSortable": true},
                 { "mData": null },
-                { "mData": null }
+                { "mData": null },
+                { "mData": null,"bSortable": false}
             ];
 
             options.aoColumnDefs = [
@@ -58,6 +59,12 @@ define(['jquery', 'realtimePages', 'helpers', 'dataTables', 'mustache', 'text!te
                         timeElements.addTimeAgoElem($(nTd).find('.last-message-timemago'), oData.lastMessage);
                     }
 
+                },
+                {
+                    "aTargets": [ 5 ],                    
+                    "mRender": function (data, full, type) {
+                        return '<span class="check-mark"></span>';
+                    }
                 }
 
             ];
