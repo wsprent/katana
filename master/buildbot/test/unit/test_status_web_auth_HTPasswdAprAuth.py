@@ -29,40 +29,44 @@ import imp
 from twisted.trial import unittest
 
 from buildbot.status.web.auth import HTPasswdAprAuth
+from buildbot.test.util import compat
+
 
 class TestHTPasswdAprAuth(unittest.TestCase):
 
     htpasswd = HTPasswdAprAuth(__file__)
 
+    @compat.skipUnlessPlatformIs('posix')  # crypt module
     def test_authenticate_des(self):
         try:
             imp.find_module('crypt')
         except ImportError:
             raise unittest.SkipTest("crypt not found")
-        for key in ('buildmaster','buildslave','buildbot'):
-            if self.htpasswd.authenticate('des'+key, key) == False:
-                self.fail("authenticate failed for '%s'" % ('des'+key))
+        for key in ('buildmaster', 'buildslave', 'buildbot'):
+            if self.htpasswd.authenticate('des' + key, key) == False:
+                self.fail("authenticate failed for '%s'" % ('des' + key))
 
     def test_authenticate_md5(self):
         if not self.htpasswd.apr:
             raise unittest.SkipTest("libaprutil-1 not found")
-        for key in ('buildmaster','buildslave','buildbot'):                
-            if self.htpasswd.authenticate('md5'+key, key) == False:
-                self.fail("authenticate failed for '%s'" % ('md5'+key))
+        for key in ('buildmaster', 'buildslave', 'buildbot'):
+            if self.htpasswd.authenticate('md5' + key, key) == False:
+                self.fail("authenticate failed for '%s'" % ('md5' + key))
 
     def test_authenticate_sha(self):
         if not self.htpasswd.apr:
             raise unittest.SkipTest("libaprutil-1 not found")
-        for key in ('buildmaster','buildslave','buildbot'):                
-            if self.htpasswd.authenticate('sha'+key, key) == False:
-                self.fail("authenticate failed for '%s'" % ('sha'+key))
+        for key in ('buildmaster', 'buildslave', 'buildbot'):
+            if self.htpasswd.authenticate('sha' + key, key) == False:
+                self.fail("authenticate failed for '%s'" % ('sha' + key))
 
     def test_authenticate_unknown(self):
-        if self.htpasswd.authenticate('foo', 'bar') == True:
+        if self.htpasswd.authenticate('foo', 'bar'):
             self.fail("authenticate succeed for 'foo:bar'")
 
+    @compat.skipUnlessPlatformIs('posix')  # crypt module
     def test_authenticate_wopassword(self):
-        algorithms = ['des','md5','sha']
+        algorithms = ['des', 'md5', 'sha']
         try:
             imp.find_module('crypt')
         except ImportError:
@@ -72,13 +76,13 @@ class TestHTPasswdAprAuth(unittest.TestCase):
             algorithms.remove('md5')
             algorithms.remove('sha')
 
-        for algo in algorithms:
-            if self.htpasswd.authenticate(algo+'buildmaster', '') == True:
+            if self.htpasswd.authenticate(algo + 'buildmaster', ''):
                 self.fail("authenticate succeed for %s w/o password"
-                                        % (algo+'buildmaster'))
+                          % (algo + 'buildmaster'))
 
+    @compat.skipUnlessPlatformIs('posix')  # crypt module
     def test_authenticate_wrongpassword(self):
-        algorithms = ['des','md5','sha']
+        algorithms = ['des', 'md5', 'sha']
         try:
             imp.find_module('crypt')
         except ImportError:
@@ -89,7 +93,6 @@ class TestHTPasswdAprAuth(unittest.TestCase):
             algorithms.remove('sha')
 
         for algo in algorithms:
-            if self.htpasswd.authenticate(algo+'buildmaster', algo) == True:
+            if self.htpasswd.authenticate(algo + 'buildmaster', algo):
                 self.fail("authenticate succeed for %s w/ wrong password"
-                                        % (algo+'buildmaster'))
-
+                          % (algo + 'buildmaster'))

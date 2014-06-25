@@ -26,8 +26,8 @@
       {% if changenum %}
         <p>To cancel all builds for this change, push the 'Cancel' button</p>
       {% else %}
-        <p>To cancel builds for this builder for a given change, fill out all
-          fields and push the 'Cancel' button</p>
+        <p>To cancel builds for this builder for a given change, fill out the
+          following field and push the 'Cancel' button</p>
       {% endif %}
 
       {% if changenum %}
@@ -72,6 +72,44 @@
       {% endif %}
 
       <input class="grey-btn" type="submit" value="Stop {{ label }}" />
+    </form>
+  {% endif %}
+{% endmacro %}
+
+{% macro cancel_build(cancel_url, authz, on_all=False, on_selected=False, builders=[], short=False, label="Build") %}
+  {% if not short %}
+    <form method="post" name="cancel_build" action="{{ cancel_url }}" class='command cancelbuild'
+               {{ 'style="display:inline"' if short else '' }}>
+      {% if not short %}
+        {% if on_all %}
+          <p>To cancel all pending builds, fill out the following field and
+          push the <i>Cancel {{ label }}</i> button</p>
+        {% elif on_selected %}
+          <p>To cancel selected pending builds, select the builders, fill out the
+          following field and push the <i>Cancel {{ label }}</i> button</p>
+          <table>
+          {% for b in builders %}
+            <tr>
+              <td align="center"><input type="checkbox" name="selected" value="{{ b.name }}"></td>
+              <td class="box"><a href="{{ b.link }}">{{ b.name|e }}</a></td>
+            </tr>
+          {% endfor %}
+          </table>
+
+        {% else %}
+          <p>To cancel this pending build, fill out the following field and
+          push the <i>Cancel {{ label }}</i> button</p>
+        {% endif %}
+      {% endif %}
+
+      {% if not short %}
+        <div class="row">
+          <span class="label">Reason:</span>
+          <input type="text" name="comments"/>
+        </div>
+      {% endif %}
+
+      <input type="submit" value="Cancel {{ label }}" />
     </form>
   {% endif %}
 {% endmacro %}
@@ -291,6 +329,25 @@
 
   Request slave to <input class="link-button" type="submit" value="shutdown" /> gracefully
   
+ </form>
+{% endmacro %}
+
+{% macro pause_slave(pause_url, authz, paused) %}
+  <form method="post" action="{{ pause_url }}" class='command pause_slave'>
+
+  {% if paused %}
+    <p>To cause this slave to start running new builds again,
+      push the 'Unpause Slave' button</p>
+  {% else %}
+    <p>To cause this slave to stop running new builds,
+      push the 'Pause Slave' button</p>
+  {% endif %}
+
+  {% if paused %}
+      <input type="submit" value="Unpause Slave" />
+  {% else %}
+      <input type="submit" value="Pause Slave" />
+  {% endif %}
  </form>
 {% endmacro %}
 

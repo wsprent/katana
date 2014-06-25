@@ -2,7 +2,8 @@
 *.pyc
 *.pyo
 *$py.class
-*.swp
+# vim trash:
+.*.sw[a-z]
 *.patch
 *.orig
 *.rej
@@ -35,6 +36,7 @@ apidocs/reference.tgz
 common/googlecode_upload.py
 master/docs/tutorial/_build
 _build
+/www
 .tox
 .idea/*
 

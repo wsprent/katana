@@ -23,45 +23,49 @@ import imp
 from twisted.trial import unittest
 
 from buildbot.status.web.auth import HTPasswdAuth
+from buildbot.test.util import compat
+
 
 class TestHTPasswdAuth(unittest.TestCase):
 
     htpasswd = HTPasswdAuth(__file__)
 
+    @compat.skipUnlessPlatformIs('posix')  # crypt module
     def test_authenticate_des(self):
         try:
             imp.find_module('crypt')
         except ImportError:
             raise unittest.SkipTest("crypt not found")
-        for key in ('buildmaster','buildslave','buildbot'):                
-            if self.htpasswd.authenticate('des'+key, key) == False:
-                self.fail("authenticate failed for '%s'" % ('des'+key))
+        for key in ('buildmaster', 'buildslave', 'buildbot'):
+            if self.htpasswd.authenticate('des' + key, key) == False:
+                self.fail("authenticate failed for '%s'" % ('des' + key))
 
     def test_authenticate_unknown(self):
-        if self.htpasswd.authenticate('foo', 'bar') == True:
+        if self.htpasswd.authenticate('foo', 'bar'):
             self.fail("authenticate succeed for 'foo:bar'")
 
+    @compat.skipUnlessPlatformIs('posix')  # crypt module
     def test_authenticate_wopassword(self):
-        algorithms = ['des','md5','sha']
+        algorithms = ['des', 'md5', 'sha']
         try:
             imp.find_module('crypt')
         except ImportError:
             algorithms.remove('des')
 
         for algo in algorithms:
-            if self.htpasswd.authenticate(algo+'buildmaster', '') == True:
+            if self.htpasswd.authenticate(algo + 'buildmaster', ''):
                 self.fail("authenticate succeed for %s w/o password"
-                                        % (algo+'buildmaster'))
+                          % (algo + 'buildmaster'))
 
+    @compat.skipUnlessPlatformIs('posix')  # crypt module
     def test_authenticate_wrongpassword(self):
-        algorithms = ['des','md5','sha']
+        algorithms = ['des', 'md5', 'sha']
         try:
             imp.find_module('crypt')
         except ImportError:
             algorithms.remove('des')
 
         for algo in algorithms:
-            if self.htpasswd.authenticate(algo+'buildmaster', algo) == True:
+            if self.htpasswd.authenticate(algo + 'buildmaster', algo):
                 self.fail("authenticate succeed for %s w/ wrong password"
-                                        % (algo+'buildmaster'))
-
+                          % (algo + 'buildmaster'))

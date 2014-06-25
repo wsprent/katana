@@ -4,15 +4,26 @@ Buildbot Coding Style
 Symbol Names
 ------------
 
-Buildbot follows `PEP8 <http://www.python.org/dev/peps/pep-0008/>`_ regarding
-the formatting of symbol names.
+Buildbot follows `PEP8 <http://www.python.org/dev/peps/pep-0008/>`_ regarding the formatting of symbol names.
+Because Buildbot uses Twisted so heavily, and Twisted uses interCaps, this is not very consistently applied throughout the codebase.
 
-The single exception in naming of functions and methods. Because Buildbot uses
-Twisted so heavily, and Twisted uses interCaps, Buildbot methods should do the
-same. That is, you should spell methods and functions with the first character
-in lower-case, and the first letter of subsequent words capitalized, e.g.,
-``compareToOther`` or ``getChangesGreaterThan``. This point is not applied very
-consistently in Buildbot, but let's try to be consistent in new code. 
+The single exception to PEP8 is in naming of functions and methods.
+That is, you should spell methods and functions with the first character in lower-case, and the first letter of subsequent words capitalized, e.g., ``compareToOther`` or ``getChangesGreaterThan``.
+
+Symbols used as parameters to functions used in configuration files should use underscores.
+
+In summary, then:
+
+================== ============
+Symbol Type        Format
+================== ============
+Methods            interCaps
+Functions          interCaps
+Function Arguments under_scores
+Classes            InitialCaps
+Variables          under_scores
+Constants          ALL_CAPS
+================== ============
 
 Twisted Idioms
 --------------
@@ -36,11 +47,12 @@ for the full details.
 
 :class:`twisted.internet.task.LoopingCall`
     Calls an asynchronous function repeatedly at set intervals.
+    Note that this will stop looping if the function fails.
+    In general, you will want to wrap the function to capture and log errors.
 
 :class:`twisted.application.internet.TimerService`
-    Similar to ``t.i.t.LoopingCall``, but implemented as a service that will
-    automatically start and stop the function calls when the service starts and
-    stops.
+    Similar to ``t.i.t.LoopingCall``, but implemented as a service that will automatically start and stop the function calls when the service starts and stops.
+    See the warning about failing functions for ``t.i.t.LoopingCall``.
 
 Sequences of Operations
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -62,7 +74,7 @@ First, an admonition: do not create extra class methods that represent the conti
         d = ...
         d.addCallback(self._myMethod_2) # BAD!
     def _myMethod_2(self, res):         # BAD!
-        # ...
+        ...
 
 Invariably, this extra method gets separated from its parent as the code
 evolves, and the result is completely unreadable. Instead, include all of the
@@ -131,7 +143,7 @@ the style within Buildbot is as follows::
 The key points to notice here:
 
 * Always import ``defer`` as a module, not the names within it.
-* Use the decorator form of ``inlineCallbacks``
+* Use the decorator form of ``inlineCallbacks``.
 * In most cases, the result of a ``yield`` expression should be assigned to a
   variable.  It can be used in a larger expression, but remember that Python
   requires that you enclose the expression in its own set of parentheses.
@@ -180,7 +192,7 @@ use a `DeferredList <http://twistedmatrix.com/documents/current/api/twisted.inte
             return res.strip()
         rev_parse_d.addCallback(parse_rev_parse)
 
-        log_d = utils.getProcessOutput(git, [ 'log', '-1', '--format=%s%n%b', results['rev'] ]))
+        log_d = utils.getProcessOutput(git, [ 'log', '-1', '--format=%s%n%b', results['rev'] ])
         def parse_log(res):
             return res.strip()
         log_d.addCallback(parse_log)
@@ -192,5 +204,5 @@ use a `DeferredList <http://twistedmatrix.com/documents/current/api/twisted.inte
         return d
 
 Here the deferred list will wait for both ``rev_parse_d`` and ``log_d`` to
-fire, or for one of them to fail. You may attach  Callbacks and errbacks to a
+fire, or for one of them to fail. You may attach callbacks and errbacks to a
 ``DeferredList`` just as for a deferred.

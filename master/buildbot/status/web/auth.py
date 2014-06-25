@@ -20,10 +20,15 @@ from twisted.internet import defer
 from zope.interface import Interface, Attribute, implements
 from buildbot.status.web.base import HtmlResource, ActionResource
 from buildbot.status.web.base import path_to_authfail
+from zope.interface import Attribute
+from zope.interface import Interface
+from zope.interface import implements
 
 from buildbot.process.users import users
 
+
 class IAuth(Interface):
+
     """
     Represent an authentication method.
 
@@ -44,6 +49,7 @@ class IAuth(Interface):
     def errmsg(self):
             """Get the reason authentication failed."""
 
+
 class AuthBase:
     master = None  # set in status.web.baseweb
     err = ""
@@ -53,7 +59,8 @@ class AuthBase:
 
     def getUserInfo(self, user):
         """default dummy impl"""
-        return dict(userName=user, fullName=user, email=user+"@localhost", groups=[ user ])
+        return dict(userName=user, fullName=user, email=user + "@localhost", groups=[user])
+
 
 class BasicAuth(AuthBase):
     implements(IAuth)
@@ -82,6 +89,7 @@ class BasicAuth(AuthBase):
                 return True
         self.err = "Invalid username or password"
         return False
+
 
 class HTPasswdAuth(AuthBase):
     implements(IAuth)
@@ -120,7 +128,7 @@ class HTPasswdAuth(AuthBase):
     def validatePassword(self, passwd, hash):
         # This is the DES-hash of the password. The first two characters are
         # the salt used to introduce disorder in the DES algorithm.
-        from crypt import crypt #@UnresolvedImport
+        from crypt import crypt  # @UnresolvedImport
         return hash == crypt(passwd, hash[0:2])
 
 
@@ -213,6 +221,7 @@ class LDAPAuth(AuthBase):
 
 
 class UsersAuth(AuthBase):
+
     """Implement authentication against users in database"""
     implements(IAuth)
 
@@ -230,6 +239,7 @@ class UsersAuth(AuthBase):
         @returns: boolean via deferred.
         """
         d = self.master.db.users.getUserByUsername(user)
+
         def check_creds(user):
             if user:
                 if users.check_passwd(passwd, user['bb_password']):
@@ -239,27 +249,31 @@ class UsersAuth(AuthBase):
         d.addCallback(check_creds)
         return d
 
+
 class AuthFailResource(HtmlResource):
     pageTitle = "Authentication Failed"
 
     def content(self, request, cxt):
-        templates =request.site.buildbot_service.templates
-        template = templates.get_template("authfail.html") 
+        templates = request.site.buildbot_service.templates
+        template = templates.get_template("authfail.html")
         return template.render(**cxt)
+
 
 class AuthzFailResource(HtmlResource):
     pageTitle = "Authorization Failed"
 
     def content(self, request, cxt):
-        templates =request.site.buildbot_service.templates
-        template = templates.get_template("authzfail.html") 
+        templates = request.site.buildbot_service.templates
+        template = templates.get_template("authzfail.html")
         return template.render(**cxt)
+
 
 class LoginResource(ActionResource):
 
     def performAction(self, request):
         authz = self.getAuthz(request)
         d = authz.login(request)
+
         def on_login(res):
             if res:
                 status = request.site.buildbot_service.master.status
@@ -271,6 +285,7 @@ class LoginResource(ActionResource):
         d.addBoth(on_login)
         return d
 
+
 class LogoutResource(ActionResource):
 
     def performAction(self, request):
@@ -278,4 +293,4 @@ class LogoutResource(ActionResource):
         authz.logout(request)
         status = request.site.buildbot_service.master.status
         root = status.getBuildbotURL()
-        return request.requestHeaders.getRawHeaders('referer',[root])[0]
+        return request.requestHeaders.getRawHeaders('referer', [root])[0]

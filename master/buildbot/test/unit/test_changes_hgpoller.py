@@ -14,14 +14,17 @@
 # Copyright Buildbot Team Members
 
 import os
-from twisted.trial import unittest
-from twisted.internet import defer
+
 from buildbot.changes import hgpoller
-from buildbot.test.util import changesource, gpo
 from buildbot.test.fake.fakedb import FakeDBConnector
+from buildbot.test.util import changesource
+from buildbot.test.util import gpo
 from buildbot.util import epoch2datetime
+from twisted.internet import defer
+from twisted.trial import unittest
 
 ENVIRON_2116_KEY = 'TEST_THAT_ENVIRONMENT_GETS_PASSED_TO_SUBPROCESSES'
+
 
 class TestHgPoller(gpo.GetProcessOutputMixin,
                    changesource.ChangeSourceMixin,
@@ -35,13 +38,16 @@ class TestHgPoller(gpo.GetProcessOutputMixin,
         d = self.setUpChangeSource()
         self.remote_repo = 'ssh://example.com/foo/baz'
         self.repo_ready = True
+
         def _isRepositoryReady():
             return self.repo_ready
+
         def create_poller(_):
             self.poller = hgpoller.HgPoller(self.remote_repo,
                                             workdir='/some/dir')
             self.poller.master = self.master
             self.poller._isRepositoryReady = _isRepositoryReady
+
         def create_db(_):
             db = self.master.db = FakeDBConnector(self)
             return db.setup()
@@ -116,34 +122,21 @@ class TestHgPoller(gpo.GetProcessOutputMixin,
 
         # check the results
         def check_changes(_):
-            self.assertEqual(len(self.changes_added), 2)
+            self.assertEqual(len(self.changes_added), 1)
 
             change = self.changes_added[0]
-            self.assertEqual(change['revision'], '64a5dc2')
-            self.assertEqual(change['author'],
-                             'Joe Test <joetest@example.org>')
-            self.assertEqual(change['when_timestamp'],
-                             epoch2datetime(1273258009)),
-            self.assertEqual(change['files'], ['file1', 'file2'])
-            self.assertEqual(change['src'], 'hg')
-            self.assertEqual(change['branch'], 'default')
-            self.assertEqual(change['comments'],
-                             os.linesep.join(('Multi-line',
-                                              'Comment for rev 0')))
-
-            change = self.changes_added[1]
             self.assertEqual(change['revision'], '4423cdb')
             self.assertEqual(change['author'],
                              'Bob Test <bobtest@example.org>')
             self.assertEqual(change['when_timestamp'],
                              epoch2datetime(1273258100)),
-            self.assertEqual(change['files'], ['file1', 'dir/file2'])
+            self.assertEqual(change['files'], ['file1 with spaces', os.path.join('dir with spaces', 'file2')])
             self.assertEqual(change['src'], 'hg')
             self.assertEqual(change['branch'], 'default')
-            self.assertEqual(change['comments'], 'This is rev 1')
+            self.assertEqual(change['comments'], 'This is rev 73591')
 
         d.addCallback(check_changes)
-        d.addCallback(self.check_current_rev(1))
+        d.addCallback(self.check_current_rev(73591))
         return d
 
     def check_current_rev(self, wished):
@@ -159,7 +152,7 @@ class TestHgPoller(gpo.GetProcessOutputMixin,
         # ancestor)
         self.expectCommands(
             gpo.Expect('hg', 'pull', '-b', 'default',
-                            'ssh://example.com/foo/baz')
+                       'ssh://example.com/foo/baz')
                 .path('/some/dir'),
             gpo.Expect('hg', 'heads', 'default', '--template={rev}' + os.linesep)
                 .path('/some/dir').stdout('5' + os.linesep + '6' + os.linesep),
@@ -176,13 +169,13 @@ class TestHgPoller(gpo.GetProcessOutputMixin,
         # normal operation. There's a previous revision, we get a new one.
         self.expectCommands(
             gpo.Expect('hg', 'pull', '-b', 'default',
-                            'ssh://example.com/foo/baz')
+                       'ssh://example.com/foo/baz')
                 .path('/some/dir'),
             gpo.Expect('hg', 'heads', 'default', '--template={rev}' + os.linesep)
                 .path('/some/dir').stdout('5' + os.linesep),
             gpo.Expect('hg', 'log', '-b', 'default', '-r', '5:5',
-                            '--template={rev}:{node}\\n')
-                .path('/some/dir').stdout('5:784bd' + os.linesep),
+                       '--template={rev}:{node}\\n')
+            .path('/some/dir').stdout('5:784bd' + os.linesep),
             gpo.Expect('hg', 'log', '-r', '784bd',
                 os.linesep.join(['--template={date|hgdate}',
                                 '{author}',

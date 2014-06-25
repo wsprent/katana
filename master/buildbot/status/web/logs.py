@@ -14,17 +14,19 @@
 # Copyright Buildbot Team Members
 
 
-from zope.interface import implements
 from twisted.python import components
 from twisted.spread import pb
 from twisted.web import server
-from twisted.web.resource import Resource, NoResource
+from twisted.web.resource import NoResource
+from twisted.web.resource import Resource
+from zope.interface import implements
 
 from buildbot import interfaces
 from buildbot.status import logfile
 from buildbot.status.web.base import IHTMLLog, HtmlResource, getCodebasesArg, ContextMixin, \
-    path_to_codebases, path_to_build, path_to_builder, path_to_builders
+    path_to_codebases, path_to_build, path_to_builder, path_to_builders, path_to_root, IHTMLLog
 from buildbot.status.web.xmltestresults import XMLTestResource
+from buildbot.util.ansicodes import parse_ansi_sgr
 
 
 class ChunkConsumer:
@@ -33,11 +35,14 @@ class ChunkConsumer:
     def __init__(self, original, textlog):
         self.original = original
         self.textlog = textlog
+
     def registerProducer(self, producer, streaming):
         self.producer = producer
         self.original.registerProducer(producer, streaming)
+
     def unregisterProducer(self):
         self.original.unregisterProducer()
+
     def writeChunk(self, chunk):
         formatted = self.textlog.content([chunk])
         try:
@@ -46,9 +51,9 @@ class ChunkConsumer:
             self.original.write(formatted)
         except pb.DeadReferenceError:
             self.producing.stopProducing()
+
     def finish(self):
         self.textlog.finished()
-
 
 # /builders/$builder/builds/$buildnum/steps/$stepname/logs/$logname
 class TextLog(Resource, ContextMixin):
@@ -81,16 +86,26 @@ class TextLog(Resource, ContextMixin):
             if type >= len(logfile.ChunkTypes) or type < 0:
                 # non-std channel, don't display
                 continue
-            
+
             is_header = type == logfile.HEADER
 
             if not self.asText:
                 # jinja only works with unicode, or pure ascii, so assume utf-8 in logs
                 if not isinstance(entry, unicode):
                     entry = unicode(entry, 'utf-8', 'replace')
-                html_entries.append(dict(type = logfile.ChunkTypes[type], 
-                                         text = entry,
-                                         is_header = is_header))
+                first_entry = True
+                _type = logfile.ChunkTypes[type]
+                for ansi_entry in entry.split("\033["):
+                    code = ""
+                    if not first_entry:
+                        ansi_entry, ansi_classes = parse_ansi_sgr(ansi_entry)
+                        if ansi_classes:
+                            code = "".join([" ansi" + i for i in ansi_classes])
+                    html_entries.append(dict(type=_type + code,
+                                             text=ansi_entry,
+                                             is_header=is_header))
+                    first_entry = False
+
             elif not is_header:
                 text_data += entry
 
@@ -110,7 +125,7 @@ class TextLog(Resource, ContextMixin):
         self._setContentType(req)
         self.req = req
 
-        if (self.original.isFinished()):
+        if self.original.isFinished():
             req.setHeader("Cache-Control", "max-age=604800")
         else:
             req.setHeader("Cache-Control", "no-cache")
@@ -157,7 +172,7 @@ class TextLog(Resource, ContextMixin):
             req.setHeader("content-type", "text/plain; charset=utf-8")
         else:
             req.setHeader("content-type", "text/html; charset=utf-8")
-        
+
     def finished(self):
         if not self.req:
             return
@@ -172,7 +187,7 @@ class TextLog(Resource, ContextMixin):
         # break the cycle, the Request's .notifications list includes the
         # Deferred (from req.notifyFinish) that's pointing at us.
         self.req = None
-        
+
         # release template
         self.template = None
 

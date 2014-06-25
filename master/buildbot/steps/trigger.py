@@ -13,26 +13,31 @@
 #
 # Copyright Buildbot Team Members
 
-from buildbot.interfaces import ITriggerableScheduler
-from buildbot.process.buildstep import LoggingBuildStep, BuildStep, SUCCESS, FAILURE, EXCEPTION
-from buildbot.process.properties import Properties, Property
-from twisted.python import log
-from twisted.internet import defer
 from buildbot import config
+from buildbot.interfaces import ITriggerableScheduler
 from buildbot.status.results import DEPENDENCY_FAILURE
+from buildbot.process.buildstep import EXCEPTION
+from buildbot.process.buildstep import FAILURE
+from buildbot.process.buildstep import LoggingBuildStep
+from buildbot.process.buildstep import SUCCESS
+from buildbot.process.properties import Properties
+from buildbot.process.properties import Property
+from twisted.internet import defer
+from twisted.python import log
+from buildbot import config
 
 
 class Trigger(LoggingBuildStep):
     name = "Trigger"
 
-    renderables = [ 'set_properties', 'schedulerNames', 'sourceStamps',
-                    'updateSourceStamp', 'alwaysUseLatest' ]
+    renderables = ['set_properties', 'schedulerNames', 'sourceStamps',
+                   'updateSourceStamp', 'alwaysUseLatest']
 
     flunkOnFailure = True
 
-    def __init__(self, schedulerNames=[], sourceStamp = None, sourceStamps = None,
+    def __init__(self, schedulerNames=[], sourceStamp=None, sourceStamps=None,
                  updateSourceStamp=None, alwaysUseLatest=False,
-                 waitForFinish=False, set_properties={}, 
+                 waitForFinish=False, set_properties={},
                  copy_properties=[], **kwargs):
         if not schedulerNames:
             config.error(
@@ -95,7 +100,7 @@ class Trigger(LoggingBuildStep):
         # don't fire any schedulers if we discover an unknown one
         for scheduler in self.schedulerNames:
             scheduler = scheduler
-            if all_schedulers.has_key(scheduler):
+            if scheduler in all_schedulers:
                 sch = all_schedulers[scheduler]
                 if ITriggerableScheduler.providedBy(sch):
                     triggered_schedulers.append(sch)
@@ -110,7 +115,7 @@ class Trigger(LoggingBuildStep):
         if self.sourceStamps:
             ss_for_trigger = {}
             for ss in self.sourceStamps:
-                codebase = ss.get('codebase','')
+                codebase = ss.get('codebase', '')
                 assert codebase not in ss_for_trigger, "codebase specified multiple times"
                 ss_for_trigger[codebase] = ss
             return ss_for_trigger
@@ -166,12 +171,14 @@ class Trigger(LoggingBuildStep):
         self.step_status.setText(['Triggered:'] + triggered_names)
 
         if self.waitForFinish:
-            rclist = yield defer.DeferredList(dl, consumeErrors=True)
+            rclist = yield defer.DeferredList(dl, consumeErrors=1)
+            if self.ended:
+                return
         else:
             # do something to handle errors
             for d in dl:
                 d.addErrback(log.err,
-                    '(ignored) while invoking Triggerable schedulers:')
+                             '(ignored) while invoking Triggerable schedulers:')
             rclist = None
             self.finishIfRunning(SUCCESS)
             return

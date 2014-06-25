@@ -7,6 +7,10 @@
 Builder Configuration
 ---------------------
 
+.. contents::
+    :depth: 1
+    :local:
+
 The :bb:cfg:`builders` configuration key is a list of objects giving
 configuration for the Builders.  For more information on the function of
 Builders in Buildbot, see :ref:`the Concepts chapter <Builder>`.  The class
@@ -69,10 +73,11 @@ Other optional keys may be set on each ``BuilderConfig``:
 ``nextSlave``
     If provided, this is a function that controls which slave will be assigned
     future jobs. The function is passed two arguments, the :class:`Builder`
-    object which is assigning a new job, and a list of :class:`BuildSlave`
-    objects. The function should return one of the :class:`BuildSlave`
+    object which is assigning a new job, and a list of :class:`SlaveBuilder`
+    objects. The function should return one of the :class:`SlaveBuilder`
     objects, or ``None`` if none of the available slaves should be
-    used.
+    used. As an example, for each ``slave`` in the list, ``slave.slave`` will 
+    be a :class:`BuildSlave` object, and ``slave.slave.slavename`` is the slave's name.
     The function can optionally return a Deferred, which should fire with the same results.
 
 ``nextBuild``
@@ -83,6 +88,14 @@ Other optional keys may be set on each ``BuilderConfig``:
     :class:`BuildRequest` objects, or ``None`` if none of the pending
     builds should be started. This function can optionally return a
     Deferred which should fire with the same results.
+
+``canStartBuild``
+    If provided, this is a function that can veto whether a particular buildslave
+    should be used for a given build request. The function is passed three
+    arguments: the :class:`Builder`, a :class:`BuildSlave`, and a :class:`BuildRequest`.
+    The function should return ``True`` if the combination is acceptable, or
+    ``False`` otherwise. This function can optionally return a Deferred which
+    should fire with the same results.
 
 ``locks``
     This argument specifies a list of locks that apply to this builder; see
@@ -110,6 +123,8 @@ Other optional keys may be set on each ``BuilderConfig``:
                 env={'PATH': '/opt/local/bin:/opt/app/bin:/usr/local/bin:/usr/bin'}),
         ]
 
+    Unlike most builder configuration arguments, this argument can contain renderables.
+
 .. index:: Builds; merging
 
 ``mergeRequests``
@@ -122,6 +137,10 @@ Other optional keys may be set on each ``BuilderConfig``:
     A builder may be given a dictionary of :ref:`Build-Properties`
     specific for this builder in this parameter. Those values can be used
     later on like other properties. :ref:`Interpolate`.
+
+``description``
+    A builder may be given an arbitrary description, which will show up in the
+    web status on the builder's page.
 
 .. index:: Builds; merging
 
@@ -176,7 +195,7 @@ called on to start their builds.  The details of writing such a function are in
 Such a function can be provided to the BuilderConfig as follows::
 
     def pickNextBuild(builder, requests):
-        # ...
+        ...
     c['builders'] = [
         BuilderConfig(name='test', factory=f,
             nextBuild=pickNextBuild,

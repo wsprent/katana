@@ -16,31 +16,46 @@
 from __future__ import with_statement
 
 
+import base64
+import binascii
 import os
 import types
-import binascii
-import base64
+
+from twisted.application import service
+from twisted.application import strports
+from twisted.conch import manhole
+from twisted.conch import telnet
+from twisted.cred import checkers
+from twisted.cred import portal
 from twisted.python import log
-from twisted.application import service, strports
-from twisted.cred import checkers, portal
-from twisted.conch import manhole, telnet, manhole_ssh, checkers as conchc
+try:
+    from twisted.conch import checkers as conchc, manhole_ssh
+    _hush_pyflakes = [manhole_ssh, conchc]
+    del _hush_pyflakes
+except ImportError:
+    manhole_ssh = None
+    conchc = None
 from twisted.conch.insults import insults
 from twisted.internet import protocol
 
+from buildbot import config
 from buildbot.util import ComparableMixin
-from zope.interface import implements # requires Twisted-2.0 or later
+from zope.interface import implements  # requires Twisted-2.0 or later
 
 # makeTelnetProtocol and _TelnetRealm are for the TelnetManhole
+
 
 class makeTelnetProtocol:
     # this curries the 'portal' argument into a later call to
     # TelnetTransport()
+
     def __init__(self, portal):
         self.portal = portal
 
     def __call__(self):
         auth = telnet.AuthenticatingTelnetProtocol
         return telnet.TelnetTransport(auth, self.portal)
+
 
 class _TelnetRealm:
     implements(portal.IRealm)
@@ -61,43 +76,47 @@ class _TelnetRealm:
 class chainedProtocolFactory:
     # this curries the 'namespace' argument into a later call to
     # chainedProtocolFactory()
+
     def __init__(self, namespace):
         self.namespace = namespace
-    
+
     def __call__(self):
         return insults.ServerProtocol(manhole.ColoredManhole, self.namespace)
 
-class AuthorizedKeysChecker(conchc.SSHPublicKeyDatabase):
-    """Accept connections using SSH keys from a given file.
+if conchc:
+    class AuthorizedKeysChecker(conchc.SSHPublicKeyDatabase):
 
-    SSHPublicKeyDatabase takes the username that the prospective client has
-    requested and attempts to get a ~/.ssh/authorized_keys file for that
-    username. This requires root access, so it isn't as useful as you'd
-    like.
+        """Accept connections using SSH keys from a given file.
 
-    Instead, this subclass looks for keys in a single file, given as an
-    argument. This file is typically kept in the buildmaster's basedir. The
-    file should have 'ssh-dss ....' lines in it, just like authorized_keys.
-    """
+        SSHPublicKeyDatabase takes the username that the prospective client has
+        requested and attempts to get a ~/.ssh/authorized_keys file for that
+        username. This requires root access, so it isn't as useful as you'd
+        like.
 
-    def __init__(self, authorized_keys_file):
-        self.authorized_keys_file = os.path.expanduser(authorized_keys_file)
+        Instead, this subclass looks for keys in a single file, given as an
+        argument. This file is typically kept in the buildmaster's basedir. The
+        file should have 'ssh-dss ....' lines in it, just like authorized_keys.
+        """
 
-    def checkKey(self, credentials):
-        with open(self.authorized_keys_file) as f:
-            for l in f.readlines():
-                l2 = l.split()
-                if len(l2) < 2:
-                    continue
-                try:
-                    if base64.decodestring(l2[1]) == credentials.blob:
-                        return 1
-                except binascii.Error:
-                    continue
-        return 0
+        def __init__(self, authorized_keys_file):
+            self.authorized_keys_file = os.path.expanduser(authorized_keys_file)
+
+        def checkKey(self, credentials):
+            with open(self.authorized_keys_file) as f:
+                for l in f.readlines():
+                    l2 = l.split()
+                    if len(l2) < 2:
+                        continue
+                    try:
+                        if base64.decodestring(l2[1]) == credentials.blob:
+                            return 1
+                    except binascii.Error:
+                        continue
+            return 0
 
 
 class _BaseManhole(service.MultiService):
+
     """This provides remote access to a python interpreter (a read/exec/print
     loop) embedded in the buildmaster via an internal SSH server. This allows
     detailed inspection of the buildmaster state. It is of most use to
@@ -129,15 +148,15 @@ class _BaseManhole(service.MultiService):
         """
 
         # unfortunately, these don't work unless we're running as root
-        #c = credc.PluggableAuthenticationModulesChecker: PAM
-        #c = conchc.SSHPublicKeyDatabase() # ~/.ssh/authorized_keys
+        # c = credc.PluggableAuthenticationModulesChecker: PAM
+        # c = conchc.SSHPublicKeyDatabase() # ~/.ssh/authorized_keys
         # and I can't get UNIXPasswordDatabase to work
 
         service.MultiService.__init__(self)
-        if type(port) is int:
+        if isinstance(port, int):
             port = "tcp:%d" % port
-        self.port = port # for comparison later
-        self.checker = checker # to maybe compare later
+        self.port = port  # for comparison later
+        self.checker = checker  # to maybe compare later
 
         def makeNamespace():
             master = self.master
@@ -145,7 +164,7 @@ class _BaseManhole(service.MultiService):
                 'master': master,
                 'status': master.getStatus(),
                 'show': show,
-                }
+            }
             return namespace
 
         def makeProtocol():
@@ -167,7 +186,6 @@ class _BaseManhole(service.MultiService):
         s = strports.service(self.port, f)
         s.setServiceParent(self)
 
-
     def startService(self):
         service.MultiService.startService(self)
         if self.using_ssh:
@@ -178,6 +196,7 @@ class _BaseManhole(service.MultiService):
 
 
 class TelnetManhole(_BaseManhole, ComparableMixin):
+
     """This Manhole accepts unencrypted (telnet) connections, and requires a
     username and password authorize access. You are encouraged to use the
     encrypted ssh-based manhole classes instead."""
@@ -205,7 +224,9 @@ class TelnetManhole(_BaseManhole, ComparableMixin):
 
         _BaseManhole.__init__(self, port, c, using_ssh=False)
 
+
 class PasswordManhole(_BaseManhole, ComparableMixin):
+
     """This Manhole accepts encrypted (ssh) connections, and requires a
     username and password to authorize access.
     """
@@ -225,6 +246,8 @@ class PasswordManhole(_BaseManhole, ComparableMixin):
                          use when authenticating the remote user.
         """
 
+        if not manhole_ssh:
+            config.error("pycrypto required for ssh mahole.")
         self.username = username
         self.password = password
 
@@ -233,7 +256,9 @@ class PasswordManhole(_BaseManhole, ComparableMixin):
 
         _BaseManhole.__init__(self, port, c)
 
+
 class AuthorizedKeysManhole(_BaseManhole, ComparableMixin):
+
     """This Manhole accepts ssh connections, and requires that the
     prospective client have an ssh private key that matches one of the public
     keys in our authorized_keys file. It is created with the name of a file
@@ -255,13 +280,18 @@ class AuthorizedKeysManhole(_BaseManhole, ComparableMixin):
                         as used by sshd in ~/.ssh/authorized_keys .
         """
 
+        if not manhole_ssh:
+            config.error("pycrypto required for ssh mahole.")
+
         # TODO: expanduser this, and make it relative to the buildmaster's
         # basedir
         self.keyfile = keyfile
         c = AuthorizedKeysChecker(keyfile)
         _BaseManhole.__init__(self, port, c)
 
+
 class ArbitraryCheckerManhole(_BaseManhole, ComparableMixin):
+
     """This Manhole accepts ssh connections, but uses an arbitrary
     user-supplied 'checker' object to perform authentication."""
 
@@ -279,9 +309,13 @@ class ArbitraryCheckerManhole(_BaseManhole, ComparableMixin):
                         perform authentication
         """
 
+        if not manhole_ssh:
+            config.error("pycrypto required for ssh mahole.")
+
         _BaseManhole.__init__(self, port, checker)
 
-## utility functions for the manhole
+# utility functions for the manhole
+
 
 def show(x):
     """Display the data attributes of an object in a readable format"""
@@ -289,13 +323,15 @@ def show(x):
     names = dir(x)
     maxlen = max([0] + [len(n) for n in names])
     for k in names:
-        v = getattr(x,k)
+        v = getattr(x, k)
         t = type(v)
-        if t == types.MethodType: continue
-        if k[:2] == '__' and k[-2:] == '__': continue
+        if t == types.MethodType:
+            continue
+        if k[:2] == '__' and k[-2:] == '__':
+            continue
         if t is types.StringType or t is types.UnicodeType:
             if len(v) > 80 - maxlen - 5:
-                v = `v[:80 - maxlen - 5]` + "..."
+                v = repr(v[:80 - maxlen - 5]) + "..."
         elif t in (types.IntType, types.NoneType):
             v = str(v)
         elif v in (types.ListType, types.TupleType, types.DictType):

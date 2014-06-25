@@ -13,18 +13,27 @@
 #
 # Copyright Buildbot Team Members
 import json
+import time
+import urllib
 
 from twisted.internet import defer
-
 from twisted.web import html
-from twisted.web.util import Redirect
 from twisted.web.resource import NoResource
+from twisted.web.util import Redirect
 from buildbot.status.web.base import HtmlResource, \
     BuildLineMixin, ActionResource, path_to_slave, path_to_authzfail, path_to_json_slaves, \
     path_to_json_past_slave_builds, path_to_json_slave_builds
 from buildbot.status.web.status_json import SlavesJsonResource, FilterOut, PastBuildsJsonResource, \
     SlaveBuildsJsonResource
 
+
+from buildbot import util
+from buildbot.status.web.base import ActionResource
+from buildbot.status.web.base import BuildLineMixin
+from buildbot.status.web.base import HtmlResource
+from buildbot.status.web.base import abbreviate_age
+from buildbot.status.web.base import path_to_authzfail
+from buildbot.status.web.base import path_to_slave
 
 class ShutdownActionResource(ActionResource):
     def __init__(self, slave):
@@ -46,7 +55,30 @@ class ShutdownActionResource(ActionResource):
         defer.returnValue(url)
 
 
+class PauseActionResource(ActionResource):
+
+    def __init__(self, slave, state):
+        self.slave = slave
+        self.action = "pauseSlave"
+        self.state = state
+
+    @defer.inlineCallbacks
+    def performAction(self, request):
+        res = yield self.getAuthz(request).actionAllowed(self.action,
+                                                         request,
+                                                         self.slave)
+
+        url = None
+        if res:
+            self.slave.setPaused(self.state)
+            url = path_to_slave(request, self.slave)
+        else:
+            url = path_to_authzfail(request)
+        defer.returnValue(url)
+
 # /buildslaves/$slavename
+
+
 class OneBuildSlaveResource(HtmlResource, BuildLineMixin):
     addSlash = False
 
@@ -62,11 +94,27 @@ class OneBuildSlaveResource(HtmlResource, BuildLineMixin):
         slave = s.getSlave(self.slavename)
         if path == "shutdown":
             return ShutdownActionResource(slave)
+        if path == "pause" or path == "unpause":
+            return PauseActionResource(slave, path == "pause")
         return Redirect(path_to_slave(req, slave))
 
     def content(self, request, ctx):
         s = self.getStatus(request)
-        slave_status = s.getSlave(self.slavename)
+        slave = s.getSlave(self.slavename)
+
+        my_builders = []
+        for bname in s.getBuilderNames():
+            b = s.getBuilder(bname)
+            for bs in b.getSlaves():
+                if bs.getName() == self.slavename:
+                    my_builders.append(b)
+
+        # Current builds
+        current_builds = []
+        for b in my_builders:
+            for cb in b.getCurrentBuilds():
+                if cb.getSlavename() == self.slavename:
+                    current_builds.append(self.get_line_values(request, cb))
 
         try:
             max_builds = int(request.args.get('numbuilds')[0])
@@ -87,28 +135,37 @@ class OneBuildSlaveResource(HtmlResource, BuildLineMixin):
                                                  "data": json.dumps(curr_builds_dict)}
 
 
-
         # connects over the last hour
         slave = s.getSlave(self.slavename)
         connect_count = slave.getConnectCount()
 
+        if slave.isPaused():
+            pause_url = request.childLink("unpause")
+        else:
+            pause_url = request.childLink("pause")
+
         ctx.update(dict(slave=slave,
                         slavename=slave.getFriendlyName(),
+                        current=current_builds,
                         shutdown_url=request.childLink("shutdown"),
+                        pause_url=pause_url,
                         authz=self.getAuthz(request),
                         this_url="../../../" + path_to_slave(request, slave),
                         access_uri=slave.getAccessURI()),
-                   admin=unicode(slave.getAdmin() or '', 'utf-8'),
-                   host=unicode(slave.getHost() or '', 'utf-8'),
-                   slave_version=slave.getVersion(),
-                   show_builder_column=True,
-                   connect_count=connect_count)
+                        admin=unicode(slave.getAdmin() or '', 'utf-8'),
+                        host=unicode(slave.getHost() or '', 'utf-8'),
+                        info=slave.getInfoAsDict(),
+                        slave_version=slave.getVersion(),
+                        show_builder_column=True,
+                        connect_count=connect_count)
         template = request.site.buildbot_service.templates.get_template("buildslave.html")
         data = template.render(**ctx)
         return data
 
 
 # /buildslaves
+
+
 class BuildSlavesResource(HtmlResource):
     pageTitle = "Katana Build slaves"
     addSlash = True

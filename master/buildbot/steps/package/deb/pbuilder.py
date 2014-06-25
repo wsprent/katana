@@ -23,12 +23,14 @@ import time
 
 from twisted.python import log
 
-from buildbot.steps.shell import WarningCountingShellCommand
+from buildbot import config
 from buildbot.process import buildstep
 from buildbot.process.buildstep import FAILURE
-from buildbot import config
+from buildbot.steps.shell import WarningCountingShellCommand
+
 
 class DebPbuilder(WarningCountingShellCommand):
+
     """Build a debian package with pbuilder inside of a chroot."""
     name = "pbuilder"
 
@@ -37,7 +39,7 @@ class DebPbuilder(WarningCountingShellCommand):
     description = ["pdebuilding"]
     descriptionDone = ["pdebuild"]
 
-    warningPattern = ".*(warning[: ]|\sW: ).*"
+    warningPattern = r".*(warning[: ]|\sW: ).*"
 
     architecture = None
     distribution = 'stable'
@@ -47,7 +49,7 @@ class DebPbuilder(WarningCountingShellCommand):
     keyring = None
     components = None
 
-    maxAge = 60*60*24*7
+    maxAge = 60 * 60 * 24 * 7
     pbuilder = '/usr/sbin/pbuilder'
     baseOption = '--basetgz'
 
@@ -116,7 +118,7 @@ class DebPbuilder(WarningCountingShellCommand):
         if self.extrapackages:
             self.command += ['--extrapackages', " ".join(self.extrapackages)]
 
-        self.suppressions.append((None, re.compile("\.pbuilderrc does not exist"), None, None))
+        self.suppressions.append((None, re.compile(r"\.pbuilderrc does not exist"), None, None))
 
     # Check for Basetgz
     def start(self):
@@ -151,7 +153,9 @@ class DebPbuilder(WarningCountingShellCommand):
             d.addCallback(lambda res: self.startBuild(cmd))
             return d
         s = cmd.updates["stat"][-1]
-        if stat.S_ISREG(s[stat.ST_MODE]):
+        # basetgz will be a file when running in pbuilder
+        # and a directory in case of cowbuilder
+        if stat.S_ISREG(s[stat.ST_MODE]) or stat.S_ISDIR(s[stat.ST_MODE]):
             log.msg("%s found." % self.basetgz)
             age = time.time() - s[stat.ST_MTIME]
             if age >= self.maxAge:
@@ -168,11 +172,15 @@ class DebPbuilder(WarningCountingShellCommand):
                 return d
             return self.startBuild(cmd)
         else:
-            log.msg("%s is not a file." % self.basetgz)
+            log.msg("%s is not a file or a directory." % self.basetgz)
             self.finished(FAILURE)
 
-    def startBuild(self, dummy):
-        return WarningCountingShellCommand.start(self)
+    def startBuild(self, cmd):
+        if cmd.rc != 0:
+            log.msg("Failure when running %s." % cmd)
+            self.finished(FAILURE)
+        else:
+            return WarningCountingShellCommand.start(self)
 
     def commandComplete(self, cmd):
         out = cmd.logs['stdio'].getText()
@@ -180,7 +188,9 @@ class DebPbuilder(WarningCountingShellCommand):
         if m:
             self.setProperty("deb-changes", m.group(1), "DebPbuilder")
 
+
 class DebCowbuilder(DebPbuilder):
+
     """Build a debian package with cowbuilder inside of a chroot."""
     name = "cowbuilder"
 
@@ -192,14 +202,18 @@ class DebCowbuilder(DebPbuilder):
     pbuilder = '/usr/sbin/cowbuilder'
     baseOption = '--basepath'
 
+
 class UbuPbuilder(DebPbuilder):
+
     """Build a Ubuntu package with pbuilder inside of a chroot."""
     distribution = None
     mirror = "http://archive.ubuntu.com/ubuntu/"
 
     components = "main universe"
 
+
 class UbuCowbuilder(DebCowbuilder):
+
     """Build a Ubuntu package with cowbuilder inside of a chroot."""
     distribution = None
     mirror = "http://archive.ubuntu.com/ubuntu/"

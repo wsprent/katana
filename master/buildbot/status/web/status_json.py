@@ -21,13 +21,16 @@ import re
 from twisted.python import log
 from buildbot.status.buildrequest import BuildRequestStatus
 from buildbot import master
+import urllib
 
 from twisted.internet import defer
-from twisted.web import html, resource, server
+from twisted.web import html
+from twisted.web import resource
+from twisted.web import server
 
 from buildbot.status.buildrequest import BuildRequestStatus
 from buildbot.status.web.base import HtmlResource, path_to_root, map_branches, getCodebasesArg, getRequestCharset
-import json
+from buildbot.util import json
 
 
 _IS_INT = re.compile(r'^[-+]?\d+$')
@@ -144,6 +147,7 @@ def FilterOut(data):
 
 
 class JsonResource(resource.Resource):
+
     """Base class for json data."""
 
     contentType = "application/json"
@@ -169,7 +173,7 @@ class JsonResource(resource.Resource):
             return HelpResource(self.help,
                                 pageTitle=pageTitle,
                                 parent_node=self)
-            # Equivalent to resource.Resource.getChildWithDefault()
+        # Equivalent to resource.Resource.getChildWithDefault()
         if path in self.children:
             return self.children[path]
         return self.getChild(path, request)
@@ -199,7 +203,7 @@ class JsonResource(resource.Resource):
                 request.setHeader("content-type", self.contentType)
                 request.setHeader("content-disposition",
                                   "attachment; filename=\"%s.json\"" % request.path)
-                # Make sure we get fresh pages.
+            # Make sure we get fresh pages.
             if self.cache_seconds:
                 now = datetime.datetime.utcnow()
                 expires = now + datetime.timedelta(seconds=self.cache_seconds)
@@ -253,7 +257,11 @@ class JsonResource(resource.Resource):
                 postpath = request.postpath[:]
                 request.postpath = filter(None, item.split('/'))
                 while request.postpath and not child.isLeaf:
-                    pathElement = request.postpath.pop(0)
+                    # Twisted unquotes the querystring once. We unquote once more
+                    # to allow for "doubly escaped" elements, which makes it possible
+                    # to select on resource names with slashes in them without them being
+                    # split into separate (invalid) elements.
+                    pathElement = urllib.unquote(request.postpath.pop(0))
                     node[pathElement] = {}
                     node = node[pathElement]
                     request.prepath.append(pathElement)
@@ -262,7 +270,8 @@ class JsonResource(resource.Resource):
                 # some asDict methods return a Deferred, so handle that
                 # properly
                 if hasattr(child, 'asDict'):
-                    child_dict = yield defer.maybeDeferred(lambda: child.asDict(request))
+                    child_dict = yield defer.maybeDeferred(lambda:
+                                                           child.asDict(request))
                 else:
                     child_dict = {
                         'error': 'Not available',
@@ -298,8 +307,8 @@ class JsonResource(resource.Resource):
                 child = self.getChildWithDefault(name, request)
                 if isinstance(child, JsonResource):
                     data[name] = yield defer.maybeDeferred(lambda:
-                    child.asDict(request))
-                    # else silently pass over non-json resources.
+                                                           child.asDict(request))
+                # else silently pass over non-json resources.
             defer.returnValue(data)
         else:
             raise NotImplementedError()
@@ -357,7 +366,7 @@ def ToHtml(text):
         else:
             output.append(html.escape(line).replace('  ', '&nbsp;&nbsp;'))
         if not in_item:
-            output.append('<br>')
+            output.append('<br/>')
 
             #if in_item:
             #output.append('</li>')
@@ -368,6 +377,7 @@ def ToHtml(text):
 
 
 class HelpResource(HtmlResource):
+
     def __init__(self, text, pageTitle, parent_node):
         HtmlResource.__init__(self)
         self.text = text
@@ -975,7 +985,7 @@ class SourceStampJsonResource(JsonResource):
         self.putChild('changes',
                       ChangesJsonResource(status, source_stamp.changes))
         # TODO(maruel): Should redirect to the patch's url instead.
-        #if source_stamp.patch:
+        # if source_stamp.patch:
         #  self.putChild('patch', StaticHTML(source_stamp.path))
 
     def asDict(self, request):
@@ -1032,6 +1042,7 @@ class GlobalJsonResource(JsonResource):
 
 
 class JsonStatusResource(JsonResource):
+
     """Retrieves all json data."""
     help = """JSON status
 

@@ -31,13 +31,14 @@ buildslave:
 
 Python: http://www.python.org
 
-  Buildbot requires python-2.5 or later on the master, although Python-2.7 is
+  Buildbot requires Python-2.5 or later on the master, although Python-2.7 is
   recommended.  The slave run on Python-2.4.
 
 Twisted: http://twistedmatrix.com
 
-  Buildbot requires Twisted-9.0.0 or later on the master, and Twisted-8.1.0 on
-  the slave. As always, the most recent version is recommended.
+  Buildbot requires Twisted-11.0.0 or later on the master, and Twisted-8.1.0 on the slave.
+  In upcoming versions of Buildbot, a newer Twisted will also be required on the slave.
+  As always, the most recent version is recommended.
 
   In some cases, Twisted is delivered as a collection of subpackages. You'll
   need at least "Twisted" (the core package), and you'll also want
@@ -80,13 +81,13 @@ sqlite3: http://www.sqlite.org
 
 pysqlite: http://pypi.python.org/pypi/pysqlite
 
-  The SQLite Python package is required for python-2.5 and earlier (it is already
-  included in python-2.5 and later, but the version in python-2.5 has nasty bugs)
+  The SQLite Python package is required for Python-2.5 and earlier (it is already
+  included in Python-2.5 and later, but the version in Python-2.5 has nasty bugs)
 
 simplejson: http://pypi.python.org/pypi/simplejson
 
-  The simplejson package is required for python-2.5 and earlier (it is already
-  included as json in python-2.6 and later)
+  The simplejson package is required for Python-2.5 and earlier (it is already
+  included as json in Python-2.6 and later)
 
 Jinja2: http://jinja.pocoo.org/
 
@@ -115,7 +116,7 @@ Python-Dateutil: http://labix.org/python-dateutil
   function properly without it if the Nightlys scheduler is not used.
 
 .. _Installing-the-code:
-  
+
 Installing the code
 -------------------
 
@@ -129,7 +130,7 @@ together.
 Installation From PyPI
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The easiest way to install Buildbot is using 'pip'. For the master:
+The preferred way to install Buildbot is using ``pip``. For the master:
 
 .. code-block:: bash
 
@@ -141,10 +142,15 @@ and for the slave:
 
     pip install buildbot-slave
 
+When using ``pip`` to install instead of distribution specific package manangers,
+e.g. via `apt-get` or `ports`, it is simpler to choose exactly which version one wants
+to use. It may however be easier to install via distribution specific package mangers
+but note that they may provide an earlier version than what is available via ``pip``.
+
 Installation From Tarballs
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Buildbot and Buildslave are installed using the standard python
+Buildbot and Buildslave are installed using the standard Python
 `distutils <http://docs.python.org/library/distutils.html>`_ process. For either
 component, after unpacking the tarball, the process is:
 
@@ -176,7 +182,7 @@ when it tries to load the libraries, then something went wrong.
 ``pydoc buildbot`` is another useful diagnostic tool.
 
 Windows users will find these files in other places. You will need to
-make sure that python can find the libraries, and will probably find
+make sure that Python can find the libraries, and will probably find
 it convenient to have :command:`buildbot` on your :envvar:`PATH`.
 
 .. _Installation-in-a-Virtualenv:
@@ -326,7 +332,7 @@ You can also type ``buildbot create-master --help`` for an up-to-the-moment summ
 ``--log-count``
 
     This is the number of log rotations to keep around. You can either
-    specify a number or @code{None} to keep all @file{twistd.log} files
+    specify a number or ``None`` to keep all @file{twistd.log} files
     around.  The default is 10.
 
 ``--db``
@@ -573,7 +579,7 @@ Here's a good checklist for setting up a buildslave:
   with symlinks.
 
 .. _Buildslave-Options:
-  
+
 Buildslave Options
 ~~~~~~~~~~~~~~~~~~
 
@@ -623,7 +629,7 @@ command line, like this
     seconds. The default (600) causes a message to be sent to the
     buildmaster at least once every 10 minutes. To set this to a lower
     value, use e.g. ``--keepalive=120``.
-    
+
     If the buildslave is behind a NAT box or stateful firewall, these
     messages may help to keep the connection alive: some NAT boxes tend to
     forget about a connection if it has not been used in a while. When
@@ -648,26 +654,9 @@ command line, like this
     specify a number or ``None`` to keep all :file:`twistd.log` files
     around. The default is 10.
 
-.. _Other-Buildslave-Configuration:
+.. option:: --allow-shutdown
 
-Other Buildslave Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``unicode_encoding``
-    This represents the encoding that buildbot should use when converting unicode
-    commandline arguments into byte strings in order to pass to the operating
-    system when spawning new processes.
-    
-    The default value is what python's :func:`sys.getfilesystemencoding()` returns, which
-    on Windows is 'mbcs', on Mac OSX is 'utf-8', and on Unix depends on your locale
-    settings.
-    
-    If you need a different encoding, this can be changed in your build slave's
-    :file:`buildbot.tac` file by adding a ``unicode_encoding``
-    argument  to the BuildSlave constructor.
-
-``allow_shutdown``
-    allow_shutdown can be passed to the BuildSlave constructor in buildbot.tac.  If
+    Can also be passed directly to the BuildSlave constructor in buildbot.tac.  If
     set, it allows the buildslave to initiate a graceful shutdown, meaning that it
     will ask the master to shut down the slave when the current build, if any, is
     complete.
@@ -685,6 +674,25 @@ Other Buildslave Configuration
 
     Both master and slave must be at least version 0.8.3 for this feature to work.
 
+
+.. _Other-Buildslave-Configuration:
+
+Other Buildslave Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``unicode_encoding``
+    This represents the encoding that buildbot should use when converting unicode
+    commandline arguments into byte strings in order to pass to the operating
+    system when spawning new processes.
+
+    The default value is what Python's :func:`sys.getfilesystemencoding()` returns, which
+    on Windows is 'mbcs', on Mac OSX is 'utf-8', and on Unix depends on your locale
+    settings.
+
+    If you need a different encoding, this can be changed in your build slave's
+    :file:`buildbot.tac` file by adding a ``unicode_encoding``
+    argument  to the BuildSlave constructor.
+
 .. code-block:: python
 
     s = BuildSlave(buildmaster_host, port, slavename, passwd, basedir,
@@ -692,7 +700,7 @@ Other Buildslave Configuration
                    unicode_encoding='utf-8', allow_shutdown='signal')
 
 .. _Upgrading-an-Existing-Buildslave:
-                       
+
 Upgrading an Existing Buildslave
 --------------------------------
 
@@ -705,7 +713,7 @@ you can run
     buildslave upgrade-slave /path/to/buildslave/dir
 
 .. _Buildslave-Version-specific-Notes:
-    
+
 Version-specific Notes
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -813,17 +821,17 @@ controlling multi-slave and multi-master setups (mostly because they are based
 on the init script from the Debian package).  With a little modification these
 scripts can be used both on Debian and RHEL-based distributions and may thus
 prove helpful to package maintainers who are working on buildbot (or those that
-haven't yet split buildbot into master and slave packages). 
+haven't yet split buildbot into master and slave packages).
 
 .. code-block:: bash
 
     # install as /etc/default/buildslave
     #         or /etc/sysconfig/buildslave
-    master/contrib/init-scripts/buildslave.default 
+    master/contrib/init-scripts/buildslave.default
 
     # install as /etc/default/buildmaster
     #         or /etc/sysconfig/buildmaster
-    master/contrib/init-scripts/buildmaster.default 
+    master/contrib/init-scripts/buildmaster.default
 
     # install as /etc/init.d/buildslave
     slave/contrib/init-scripts/buildslave.init.sh
@@ -831,7 +839,7 @@ haven't yet split buildbot into master and slave packages).
     # install as /etc/init.d/buildmaster
     slave/contrib/init-scripts/buildmaster.init.sh
 
-    # ... and tell sysvinit about them 
+    # ... and tell sysvinit about them
     chkconfig buildmaster reset
     # ... or
     update-rc.d buildmaster defaults
@@ -961,9 +969,9 @@ Cron jobs are typically run with a minimal shell (:file:`/bin/sh`, not
 commands. You may want to use explicit paths, because the :envvar:`PATH`
 is usually quite short and doesn't include anything set by your
 shell's startup scripts (:file:`.profile`, :file:`.bashrc`, etc). If
-you've installed buildbot (or other python libraries) to an unusual
+you've installed buildbot (or other Python libraries) to an unusual
 location, you may need to add a :envvar:`PYTHONPATH` specification (note
-that python will do tilde-expansion on :envvar:`PYTHONPATH` elements by
+that Python will do tilde-expansion on :envvar:`PYTHONPATH` elements by
 itself). Sometimes it is safer to fully-specify everything:
 
 .. code-block:: none

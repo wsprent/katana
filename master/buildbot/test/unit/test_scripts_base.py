@@ -15,13 +15,18 @@
 
 from __future__ import with_statement
 
+import cStringIO
 import os
 import string
-import cStringIO
-from twisted.trial import unittest
+import textwrap
+
 from buildbot.scripts import base
-from buildbot.test.util import dirs, misc
-from twisted.python import usage, runtime
+from buildbot.test.util import dirs
+from buildbot.test.util import misc
+from twisted.python import runtime
+from twisted.python import usage
+from twisted.trial import unittest
+
 
 class TestIBD(dirs.DirsMixin, misc.StdoutAssertionsMixin, unittest.TestCase):
 
@@ -32,17 +37,20 @@ class TestIBD(dirs.DirsMixin, misc.StdoutAssertionsMixin, unittest.TestCase):
 
     def test_isBuildmasterDir_no_dir(self):
         self.assertFalse(base.isBuildmasterDir(os.path.abspath('test/nosuch')))
-        self.assertInStdout('no buildbot.tac')
+        self.assertInStdout('error reading')
+        self.assertInStdout('invalid buildmaster directory')
 
     def test_isBuildmasterDir_no_file(self):
         self.assertFalse(base.isBuildmasterDir(os.path.abspath('test')))
-        self.assertInStdout('no buildbot.tac')
+        self.assertInStdout('error reading')
+        self.assertInStdout('invalid buildmaster directory')
 
     def test_isBuildmasterDir_no_Application(self):
         with open(os.path.join('test', 'buildbot.tac'), 'w') as f:
             f.write("foo\nx = Application('buildslave')\nbar")
         self.assertFalse(base.isBuildmasterDir(os.path.abspath('test')))
-        self.assertWasQuiet()
+        self.assertInStdout('unexpected content')
+        self.assertInStdout('invalid buildmaster directory')
 
     def test_isBuildmasterDir_matches(self):
         with open(os.path.join('test', 'buildbot.tac'), 'w') as f:
@@ -50,11 +58,86 @@ class TestIBD(dirs.DirsMixin, misc.StdoutAssertionsMixin, unittest.TestCase):
         self.assertTrue(base.isBuildmasterDir(os.path.abspath('test')))
         self.assertWasQuiet()
 
+
+class TestTacFallback(dirs.DirsMixin, unittest.TestCase):
+
+    """
+    Tests for L{base.getConfigFileFromTac}.
+    """
+
+    def setUp(self):
+        """
+        Create a base directory.
+        """
+        self.basedir = os.path.abspath('basedir')
+        return self.setUpDirs('basedir')
+
+    def _createBuildbotTac(self, contents=None):
+        """
+        Create a C{buildbot.tac} that points to a given C{configfile}
+        and create that file.
+
+        @param configfile: Config file to point at and create.
+        @type configfile: L{str}
+        """
+        if contents is None:
+            contents = '#dummy'
+        tacfile = os.path.join(self.basedir, "buildbot.tac")
+        with open(tacfile, "wt") as f:
+            f.write(contents)
+        return tacfile
+
+    def test_getConfigFileFromTac(self):
+        """
+        When L{getConfigFileFromTac} is passed a C{basedir}
+        containing a C{buildbot.tac}, it reads the location
+        of the config file from there.
+        """
+        self._createBuildbotTac("configfile='other.cfg'")
+        foundConfigFile = base.getConfigFileFromTac(
+            basedir=self.basedir)
+        self.assertEqual(foundConfigFile, "other.cfg")
+
+    def test_getConfigFileFromTac_fallback(self):
+        """
+        When L{getConfigFileFromTac} is passed a C{basedir}
+        which doesn't contain a C{buildbot.tac},
+        it returns C{master.cfg}
+        """
+        foundConfigFile = base.getConfigFileFromTac(
+            basedir=self.basedir)
+        self.assertEqual(foundConfigFile, 'master.cfg')
+
+    def test_getConfigFileFromTac_tacWithoutConfigFile(self):
+        """
+        When L{getConfigFileFromTac} is passed a C{basedir}
+        containing a C{buildbot.tac}, but C{buildbot.tac} doesn't
+        define C{configfile}, L{getConfigFileFromTac} returns C{master.cfg}
+        """
+        self._createBuildbotTac()
+        foundConfigFile = base.getConfigFileFromTac(
+            basedir=self.basedir)
+        self.assertEqual(foundConfigFile, 'master.cfg')
+
+    def test_getConfigFileFromTac_usingFile(self):
+        """
+        Wehn L{getConfigFileFromTac} is passed a C{basedir}
+        containing a C{buildbot.tac} which references C{__file__},
+        that reference points to C{buildbot.tac}.
+        """
+        self._createBuildbotTac(textwrap.dedent("""
+            from twisted.python.util import sibpath
+            configfile = sibpath(__file__, "relative.cfg")
+            """))
+        foundConfigFile = base.getConfigFileFromTac(basedir=self.basedir)
+        self.assertEqual(foundConfigFile, os.path.join(self.basedir, "relative.cfg"))
+
+
 class TestSubcommandOptions(unittest.TestCase):
 
     def fakeOptionsFile(self, **kwargs):
         self.patch(base.SubcommandOptions, 'loadOptionsFile',
-                lambda self : kwargs.copy())
+                   lambda self: kwargs.copy())
 
     def parse(self, cls, *args):
         self.opts = cls()
@@ -62,7 +145,7 @@ class TestSubcommandOptions(unittest.TestCase):
         return self.opts
 
     class Bare(base.SubcommandOptions):
-        optFlags = [ [ 'foo', 'f', 'Foo!' ] ]
+        optFlags = [['foo', 'f', 'Foo!']]
 
     def test_bare_subclass(self):
         self.fakeOptionsFile()
@@ -70,8 +153,8 @@ class TestSubcommandOptions(unittest.TestCase):
         self.assertTrue(opts['foo'])
 
     class ParamsAndOptions(base.SubcommandOptions):
-        optParameters = [ [ 'volume', 'v', '5', 'How Loud?' ] ]
-        buildbotOptions = [ [ 'volcfg', 'volume' ] ]
+        optParameters = [['volume', 'v', '5', 'How Loud?']]
+        buildbotOptions = [['volcfg', 'volume']]
 
     def test_buildbotOptions(self):
         self.fakeOptionsFile()
@@ -89,13 +172,14 @@ class TestSubcommandOptions(unittest.TestCase):
         self.assertEqual(opts['volume'], '7')
 
     class RequiredOptions(base.SubcommandOptions):
-        optParameters = [ [ 'volume', 'v', None, 'How Loud?' ] ]
-        requiredOptions = [ 'volume' ]
+        optParameters = [['volume', 'v', None, 'How Loud?']]
+        requiredOptions = ['volume']
 
     def test_requiredOptions(self):
         self.fakeOptionsFile()
         self.assertRaises(usage.UsageError,
-                lambda : self.parse(self.RequiredOptions))
+                          lambda: self.parse(self.RequiredOptions))
+
 
 class TestLoadOptionsFile(dirs.DirsMixin, misc.StdoutAssertionsMixin,
                           unittest.TestCase):
@@ -118,13 +202,14 @@ class TestLoadOptionsFile(dirs.DirsMixin, misc.StdoutAssertionsMixin,
         if runtime.platformType == 'win32':
             from win32com.shell import shell
             patches.append(self.patch(shell, 'SHGetFolderPath',
-                lambda *args : self.home))
+                                      lambda *args: self.home))
         else:
             def expanduser(p):
                 return p.replace('~/', self.home + '/')
             patches.append(self.patch(os.path, 'expanduser', expanduser))
 
         old_dirname = os.path.dirname
+
         def dirname(p):
             # bottom out at self.dir, rather than /
             if p == self.dir:
@@ -152,15 +237,15 @@ class TestLoadOptionsFile(dirs.DirsMixin, misc.StdoutAssertionsMixin,
         subdir = os.path.join(self.dir, 'a', 'b')
         os.makedirs(subdir)
         self.writeOptionsFile(self.dir, 'abc="def"')
-        self.writeOptionsFile(self.home, 'abc=123') # not seen
-        self.do_loadOptionsFile(_here=subdir, exp={'abc':'def'})
+        self.writeOptionsFile(self.home, 'abc=123')  # not seen
+        self.do_loadOptionsFile(_here=subdir, exp={'abc': 'def'})
 
     def test_loadOptionsFile_subdirs_at_tip(self):
         subdir = os.path.join(self.dir, 'a', 'b')
         os.makedirs(subdir)
         self.writeOptionsFile(os.path.join(self.dir, 'a', 'b'), 'abc="def"')
-        self.writeOptionsFile(self.dir, 'abc=123') # not seen
-        self.do_loadOptionsFile(_here=subdir, exp={'abc':'def'})
+        self.writeOptionsFile(self.dir, 'abc=123')  # not seen
+        self.do_loadOptionsFile(_here=subdir, exp={'abc': 'def'})
 
     def test_loadOptionsFile_subdirs_at_homedir(self):
         subdir = os.path.join(self.dir, 'a', 'b')
@@ -168,13 +253,13 @@ class TestLoadOptionsFile(dirs.DirsMixin, misc.StdoutAssertionsMixin,
         # on windows, the subdir of the home (well, appdata) dir
         # is 'buildbot', not '.buildbot'
         self.writeOptionsFile(self.home, 'abc=123',
-            'buildbot' if runtime.platformType == 'win32' else '.buildbot')
-        self.do_loadOptionsFile(_here=subdir, exp={'abc':123})
+                              'buildbot' if runtime.platformType == 'win32' else '.buildbot')
+        self.do_loadOptionsFile(_here=subdir, exp={'abc': 123})
 
     def test_loadOptionsFile_syntax_error(self):
         self.writeOptionsFile(self.dir, 'abc=abc')
-        self.assertRaises(NameError, lambda :
-            self.do_loadOptionsFile(_here=self.dir, exp={}))
+        self.assertRaises(NameError, lambda:
+                          self.do_loadOptionsFile(_here=self.dir, exp={}))
         self.assertInStdout('error while reading')
 
     def test_loadOptionsFile_toomany(self):

@@ -11,5 +11,7 @@ Buildbot Manual
    concepts
    configuration
    customization
+   new-style-steps
    cmdline
    resources
+   optimization

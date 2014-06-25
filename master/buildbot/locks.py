@@ -14,17 +14,20 @@
 # Copyright Buildbot Team Members
 
 
-from twisted.python import log
-from twisted.internet import reactor, defer
 from buildbot import util
 from buildbot.util import subscription
+from buildbot.util.eventual import eventually
+from twisted.internet import defer
+from twisted.python import log
 
-if False: # for debugging
+if False:  # for debugging
     debuglog = log.msg
 else:
     debuglog = lambda m: None
 
+
 class BaseLock:
+
     """
     Class handling claiming and releasing of L{self}, and keeping track of
     current and waiting owners.
@@ -44,7 +47,7 @@ class BaseLock:
 
         # subscriptions to this lock being released
         self.release_subs = subscription.SubscriptionPoint("%r releases"
-                                                             % (self,))
+                                                           % (self,))
 
     def __repr__(self):
         return self.description
@@ -58,18 +61,17 @@ class BaseLock:
         for owner in self.owners:
             if owner[1].mode == 'exclusive':
                 num_excl = num_excl + 1
-            else: # mode == 'counting'
+            else:  # mode == 'counting'
                 num_counting = num_counting + 1
 
         assert (num_excl == 1 and num_counting == 0) \
-                or (num_excl == 0 and num_counting <= self.maxCount)
+            or (num_excl == 0 and num_counting <= self.maxCount)
         return num_excl, num_counting
-
 
     def isAvailable(self, requester, access):
         """ Return a boolean whether the lock is available for claiming """
         debuglog("%s isAvailable(%s, %s): self.owners=%r"
-                                      % (self, requester, access, self.owners))
+                 % (self, requester, access, self.owners))
         num_excl, num_counting = self._getOwnersCount()
 
         # Find all waiters ahead of the requester in the wait queue
@@ -78,13 +80,13 @@ class BaseLock:
                 w_index = idx
                 break
         else:
-            w_index = len(self.waiting) 
+            w_index = len(self.waiting)
         ahead = self.waiting[:w_index]
 
         if access.mode == 'counting':
             # Wants counting access
             return num_excl == 0 and num_counting + len(ahead) < self.maxCount \
-                    and all([w[1].mode == 'counting' for w in ahead])
+                and all([w[1].mode == 'counting' for w in ahead])
         else:
             # Wants exclusive access
             return num_excl == 0 and num_counting == 0 and len(ahead) == 0
@@ -137,7 +139,7 @@ class BaseLock:
             # from the wait queue entry to indicate that it has been woken.
             if d:
                 self.waiting[i] = (w_owner, w_access, None)
-                reactor.callLater(0, d.callback, self)
+                eventually(d.callback, self)
 
         # notify any listeners
         self.release_subs.deliver()
@@ -174,6 +176,7 @@ class BaseLock:
 
 
 class RealMasterLock(BaseLock):
+
     def __init__(self, lockid):
         BaseLock.__init__(self, lockid.name, lockid.maxCount)
         self.description = "<MasterLock(%s, %s)>" % (self.name, self.maxCount)
@@ -181,7 +184,9 @@ class RealMasterLock(BaseLock):
     def getLock(self, slave):
         return self
 
+
 class RealSlaveLock:
+
     def __init__(self, lockid):
         self.name = lockid.name
         self.maxCount = lockid.maxCount
@@ -196,7 +201,7 @@ class RealSlaveLock:
 
     def getLock(self, slave):
         slavename = slave.slavename
-        if not self.locks.has_key(slavename):
+        if not slavename in self.locks:
             maxCount = self.maxCountForSlave.get(slavename,
                                                  self.maxCount)
             lock = self.locks[slavename] = BaseLock(self.name, maxCount)
@@ -208,6 +213,7 @@ class RealSlaveLock:
 
 
 class LockAccess(util.ComparableMixin):
+
     """ I am an object representing a way to access a lock.
 
     @param lockid: LockId instance that should be accessed.
@@ -218,15 +224,20 @@ class LockAccess(util.ComparableMixin):
     """
 
     compare_attrs = ['lockid', 'mode']
-    def __init__(self, lockid, mode):
+
+    def __init__(self, lockid, mode, _skipChecks=False):
         self.lockid = lockid
         self.mode = mode
 
-        assert isinstance(lockid, (MasterLock, SlaveLock))
-        assert mode in ['counting', 'exclusive']
+        if not _skipChecks:
+            # these checks fail with mock < 0.8.0 when lockid is a Mock
+            # TODO: remove this in Buildbot-0.9.0+
+            assert isinstance(lockid, (MasterLock, SlaveLock))
+            assert mode in ['counting', 'exclusive']
 
 
 class BaseLockId(util.ComparableMixin):
+
     """ Abstract base class for LockId classes.
 
     Sets up the 'access()' function for the LockId's available to the user
@@ -237,6 +248,7 @@ class BaseLockId(util.ComparableMixin):
     - Link to the actual lock class should be added with the L{lockClass}
       class variable.
     """
+
     def access(self, mode):
         """ Express how the lock should be accessed """
         assert mode in ['counting', 'exclusive']
@@ -249,12 +261,11 @@ class BaseLockId(util.ComparableMixin):
         return self.access('counting')
 
 
-
 # master.cfg should only reference the following MasterLock and SlaveLock
 # classes. They are identifiers that will be turned into real Locks later,
 # via the BotMaster.getLockByID method.
-
 class MasterLock(BaseLockId):
+
     """I am a semaphore that limits the number of simultaneous actions.
 
     Builds and BuildSteps can declare that they wish to claim me as they run.
@@ -269,11 +280,14 @@ class MasterLock(BaseLockId):
 
     compare_attrs = ['name', 'maxCount']
     lockClass = RealMasterLock
+
     def __init__(self, name, maxCount=1):
         self.name = name
         self.maxCount = maxCount
 
+
 class SlaveLock(BaseLockId):
+
     """I am a semaphore that limits simultaneous actions on each buildslave.
 
     Builds and BuildSteps can declare that they wish to claim me as they run.
@@ -295,6 +309,7 @@ class SlaveLock(BaseLockId):
 
     compare_attrs = ['name', 'maxCount', '_maxCountForSlaveList']
     lockClass = RealSlaveLock
+
     def __init__(self, name, maxCount=1, maxCountForSlave={}):
         self.name = name
         self.maxCount = maxCount

@@ -14,6 +14,10 @@ The steps used by these builds are defined in the next section, :ref:`Build-Step
     Build factories are used with builders, and are not added directly to the
     buildmaster configuration dictionary.
 
+.. contents::
+    :depth: 1
+    :local:
+
 .. _BuildFactory:
 
 .. index:: Build Factory
@@ -22,7 +26,7 @@ Defining a Build Factory
 ------------------------
 
 A :class:`BuildFactory` defines the steps that every build will follow.  Think of it as
-a glorified script.  For example, a build factory which consists of a CVS checkout
+a glorified script.  For example, a build factory which consists of an SVN checkout
 followed by a ``make build`` would be configured as follows::
 
     from buildbot.steps import svn, shell
@@ -155,6 +159,11 @@ Optional Arguments:
     of the autoconf-controlled package, like ``["--without-x"]`` to
     disable windowing support. Defaults to an empty list.
 
+``reconf``
+    use autoreconf to generate the ./configure file, set to True to use a
+    buildbot default autoreconf command, or define the command for the
+    ShellCommand.
+
 ``compile``
     this is a shell command or list of argv values which is used to
     actually compile the tree. It defaults to ``make all``. If set to
@@ -162,22 +171,27 @@ Optional Arguments:
 
 ``test``
     this is a shell command or list of argv values which is used to run
-    the tree's self-tests. It defaults to @code{make check}. If set to
+    the tree's self-tests. It defaults to ``make check``. If set to
+    None, the test step is skipped.
+
+``distcheck``
+    this is a shell command or list of argv values which is used to run
+    the packaging test. It defaults to ``make distcheck``. If set to
     None, the test step is skipped.
 
 .. _BasicBuildFactory:
-    
+
 .. index::
    BasicBuildFactory
    Build Factory; BasicBuildFactory
-    
+
 BasicBuildFactory
 ~~~~~~~~~~~~~~~~~
 
 .. py:class:: buildbot.process.factory.BasicBuildFactory
 
 This is a subclass of :class:`GNUAutoconf` which assumes the source is in CVS,
-and uses ``mode='clobber'``  to always build from a clean working copy.
+and uses ``mode='full'`` and ``method='clobber'``  to always build from a clean working copy.
 
 .. _BasicSVN:
 
@@ -190,7 +204,7 @@ BasicSVN
 
 .. py:class:: buildbot.process.factory.BasicSVN
 
-This class is similar to :class:`BasicBuildFactory`, but uses SVN instead of CVS.
+This class is similar to :class:`QuickBuildFactory`, but uses SVN instead of CVS.
 
 .. _QuickBuildFactory:
 
@@ -204,13 +218,13 @@ QuickBuildFactory
 .. py:class:: buildbot.process.factory.QuickBuildFactory
 
 The :class:`QuickBuildFactory` class is a subclass of :class:`GNUAutoconf` which
-assumes the source is in CVS, and uses ``mode='update'`` to get incremental
+assumes the source is in CVS, and uses ``mode='incremental'`` to get incremental
 updates.
 
 The difference between a `full build` and a `quick build` is that
 quick builds are generally done incrementally, starting with the tree
 where the previous build was performed. That simply means that the
-source-checkout step should be given a ``mode='update'`` flag, to
+source-checkout step should be given a ``mode='incremental'`` flag, to
 do the source update in-place.
 
 In addition to that, this class sets the :attr:`useProgress` flag to ``False``.
@@ -262,7 +276,7 @@ Arguments:
 .. index::
    Distutils,
    Build Factory; Distutils
-    
+
 Distutils
 ~~~~~~~~~
 
@@ -365,7 +379,7 @@ Arguments:
     pure-python modules.
 
 ``python``
-    which python executable to use. This list will form the start of
+    which Python executable to use. This list will form the start of
     the `argv` array that will launch trial. If you use this,
     you should set ``trial`` to an explicit path (like
     :file:`/usr/bin/trial` or :file:`./bin/trial`). The parameter defaults

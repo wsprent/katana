@@ -13,10 +13,11 @@
 #
 # Copyright Buildbot Team Members
 
-from twisted.internet import defer
 from buildbot.clients import usersclient
 from buildbot.process.users import users
 from buildbot.util import in_reactor
+from twisted.internet import defer
+
 
 @in_reactor
 @defer.inlineCallbacks
@@ -41,6 +42,8 @@ def user(config):
             user['identifier'] = sorted(user.values())[0]
 
     uc = usersclient.UsersClient(master, username, passwd, port)
-    yield uc.send(op, bb_username, bb_password, ids, info)
+    output = yield uc.send(op, bb_username, bb_password, ids, info)
+    if output:
+        print output
 
     defer.returnValue(0)

@@ -14,44 +14,66 @@
 # Copyright Buildbot Team Members
 
 import mock
-from twisted.trial import unittest
-from twisted.application import internet
-from twisted.internet import task, reactor
+
 from buildbot.status import words
 from buildbot.test.util import compat
+from buildbot.test.util import config
+from twisted.application import internet
+from twisted.internet import reactor
+from twisted.internet import task
+from twisted.trial import unittest
+
 
 class TestIrcContactChannel(unittest.TestCase):
 
     def setUp(self):
         self.bot = mock.Mock(name='IRCStatusBot-instance')
         self.bot.nickname = 'nick'
-        self.bot.notify_events = { 'success' : 1, 'failure' : 1 }
+        self.bot.notify_events = {'success': 1, 'failure': 1}
 
         # fake out subscription/unsubscription
         self.subscribed = False
+
         def subscribe(contact):
             self.subscribed = True
         self.bot.status.subscribe = subscribe
+
         def unsubscribe(contact):
             self.subscribed = False
         self.bot.status.unsubscribe = unsubscribe
+
+        # fake out clean shutdown
+        self.bot.master = mock.Mock(name='IRCStatusBot-instance.master')
+        self.bot.master.botmaster = mock.Mock(name='IRCStatusBot-instance.master.botmaster')
+        self.bot.master.botmaster.shuttingDown = False
+
+        def cleanShutdown():
+            self.bot.master.botmaster.shuttingDown = True
+        self.bot.master.botmaster.cleanShutdown = cleanShutdown
+
+        def cancelCleanShutdown():
+            self.bot.master.botmaster.shuttingDown = False
+        self.bot.master.botmaster.cancelCleanShutdown = cancelCleanShutdown
 
         self.contact = words.IRCContact(self.bot, '#buildbot')
 
     def patch_send(self):
         self.sent = []
+
         def send(msg):
             self.sent.append(msg)
         self.contact.send = send
 
     def patch_act(self):
         self.actions = []
+
         def act(msg):
             self.actions.append(msg)
         self.contact.act = act
 
     def do_test_command(self, command, args='', who='me', clock_ticks=None,
-            exp_usage=True, exp_UsageError=False):
+                        exp_usage=True, exp_UsageError=False, allowShutdown=False,
+                        shuttingDown=False):
         cmd = getattr(self.contact, 'command_' + command.upper())
 
         if exp_usage:
@@ -61,6 +83,8 @@ class TestIrcContactChannel(unittest.TestCase):
         self.patch(reactor, 'callLater', clock.callLater)
         self.patch_send()
         self.patch_act()
+        self.bot.factory.allowShutdown = allowShutdown
+        self.bot.master.botmaster.shuttingDown = shuttingDown
 
         if exp_UsageError:
             try:
@@ -109,18 +133,108 @@ class TestIrcContactChannel(unittest.TestCase):
         self.assertIn('help on what', self.sent[0])
 
     def test_command_help_arg(self):
-        self.contact.command_FOO = lambda : None
+        self.contact.command_FOO = lambda: None
         self.contact.command_FOO.usage = 'foo - bar'
         self.do_test_command('help', args='foo')
         self.assertIn('Usage: foo - bar', self.sent[0])
 
     def test_command_help_no_usage(self):
-        self.contact.command_FOO = lambda : None
+        self.contact.command_FOO = lambda: None
         self.do_test_command('help', args='foo')
         self.assertIn('No usage info for', self.sent[0])
 
+    def test_command_help_dict_command(self):
+        self.contact.command_FOO = lambda: None
+        self.contact.command_FOO.usage = {
+            None: 'foo - bar'
+        }
+        self.do_test_command('help', args='foo')
+        self.assertIn('Usage: foo - bar', self.sent[0])
+
+    def test_command_help_dict_command_no_usage(self):
+        self.contact.command_FOO = lambda: None
+        self.contact.command_FOO.usage = {}
+        self.do_test_command('help', args='foo')
+        self.assertIn("No usage info for 'foo'", self.sent[0])
+
+    def test_command_help_dict_command_arg(self):
+        self.contact.command_FOO = lambda: None
+        self.contact.command_FOO.usage = {
+            'this': 'foo this - bar'
+        }
+        self.do_test_command('help', args='foo this')
+        self.assertIn('Usage: foo this - bar', self.sent[0])
+
+    def test_command_help_dict_command_arg_no_usage(self):
+        self.contact.command_FOO = lambda: None
+        self.contact.command_FOO.usage = {
+            # nothing for arg 'this'
+            ('this', 'first'): 'foo this first - bar'
+        }
+        self.do_test_command('help', args='foo this')
+        self.assertIn("No usage info for 'foo' 'this'", self.sent[0])
+
+    def test_command_help_dict_command_arg_subarg(self):
+        self.contact.command_FOO = lambda: None
+        self.contact.command_FOO.usage = {
+            ('this', 'first'): 'foo this first - bar'
+        }
+        self.do_test_command('help', args='foo this first')
+        self.assertIn('Usage: foo this first - bar', self.sent[0])
+
+    def test_command_help_dict_command_arg_subarg_no_usage(self):
+        self.contact.command_FOO = lambda: None
+        self.contact.command_FOO.usage = {
+            None: 'foo - bar',
+            'this': 'foo this - bar',
+            ('this', 'first'): 'foo this first - bar'
+            # nothing for subarg 'missing'
+        }
+        self.do_test_command('help', args='foo this missing')
+        self.assertIn("No usage info for 'foo' 'this' 'missing'", self.sent[0])
+
     def test_command_help_nosuch(self):
         self.do_test_command('help', args='foo', exp_UsageError=True)
+
+    def test_command_shutdown(self):
+        self.do_test_command('shutdown', exp_UsageError=True)
+        self.assertEqual(self.bot.factory.allowShutdown, False)
+        self.assertEqual(self.bot.master.botmaster.shuttingDown, False)
+
+    def test_command_shutdown_dissalowed(self):
+        self.do_test_command('shutdown', args='check', exp_UsageError=True)
+        self.assertEqual(self.bot.factory.allowShutdown, False)
+        self.assertEqual(self.bot.master.botmaster.shuttingDown, False)
+
+    def test_command_shutdown_check_running(self):
+        self.do_test_command('shutdown', args='check', allowShutdown=True, shuttingDown=False)
+        self.assertEqual(self.bot.factory.allowShutdown, True)
+        self.assertEqual(self.bot.master.botmaster.shuttingDown, False)
+        self.assertIn('buildbot is running', self.sent[0])
+
+    def test_command_shutdown_check_shutting_down(self):
+        self.do_test_command('shutdown', args='check', allowShutdown=True, shuttingDown=True)
+        self.assertEqual(self.bot.factory.allowShutdown, True)
+        self.assertEqual(self.bot.master.botmaster.shuttingDown, True)
+        self.assertIn('buildbot is shutting down', self.sent[0])
+
+    def test_command_shutdown_start(self):
+        self.do_test_command('shutdown', args='start', allowShutdown=True, shuttingDown=False)
+        self.assertEqual(self.bot.factory.allowShutdown, True)
+        self.assertEqual(self.bot.master.botmaster.shuttingDown, True)
+
+    def test_command_shutdown_stop(self):
+        self.do_test_command('shutdown', args='stop', allowShutdown=True, shuttingDown=True)
+        self.assertEqual(self.bot.factory.allowShutdown, True)
+        self.assertEqual(self.bot.master.botmaster.shuttingDown, False)
+
+    def test_command_shutdown_now(self):
+        stop = mock.Mock()
+        self.patch(reactor, 'stop', stop)
+        self.do_test_command('shutdown', args='now', allowShutdown=True)
+        self.assertEqual(self.bot.factory.allowShutdown, True)
+        self.assertEqual(self.bot.master.botmaster.shuttingDown, False)
+        stop.assert_called_with()
 
     def test_command_source(self):
         self.do_test_command('source')
@@ -132,14 +246,15 @@ class TestIrcContactChannel(unittest.TestCase):
 
     def test_command_destroy(self):
         self.do_test_command('destroy', exp_usage=False)
-        self.assertEqual(self.actions, [ 'readies phasers' ])
+        self.assertEqual(self.actions, ['readies phasers'])
 
     def test_command_dance(self):
-        self.do_test_command('dance', clock_ticks=[1.0]*10, exp_usage=False)
-        self.assertTrue(self.sent) # doesn't matter what it sent
+        self.do_test_command('dance', clock_ticks=[1.0] * 10, exp_usage=False)
+        self.assertTrue(self.sent)  # doesn't matter what it sent
 
     def test_send(self):
         events = []
+
         def msgOrNotice(dest, msg):
             events.append((dest, msg))
         self.contact.bot.msgOrNotice = msgOrNotice
@@ -156,6 +271,7 @@ class TestIrcContactChannel(unittest.TestCase):
 
     def test_act(self):
         events = []
+
         def describe(dest, msg):
             events.append((dest, msg))
         self.contact.bot.describe = describe
@@ -174,6 +290,7 @@ class TestIrcContactChannel(unittest.TestCase):
         silly_prompt = self.contact.silly.keys()[0]
         self.contact.doSilly = mock.Mock()
         d = self.contact.handleMessage(silly_prompt, 'me')
+
         @d.addCallback
         def cb(_):
             self.contact.doSilly.assert_called_with(silly_prompt)
@@ -182,6 +299,7 @@ class TestIrcContactChannel(unittest.TestCase):
     def test_handleMessage_short_command(self):
         self.contact.command_TESTY = mock.Mock()
         d = self.contact.handleMessage('testy', 'me')
+
         @d.addCallback
         def cb(_):
             self.contact.command_TESTY.assert_called_with('', 'me')
@@ -190,6 +308,7 @@ class TestIrcContactChannel(unittest.TestCase):
     def test_handleMessage_long_command(self):
         self.contact.command_TESTY = mock.Mock()
         d = self.contact.handleMessage('testy   westy boo', 'me')
+
         @d.addCallback
         def cb(_):
             self.contact.command_TESTY.assert_called_with('westy boo', 'me')
@@ -198,34 +317,39 @@ class TestIrcContactChannel(unittest.TestCase):
     def test_handleMessage_excited(self):
         self.patch_send()
         d = self.contact.handleMessage('hi!', 'me')
+
         @d.addCallback
         def cb(_):
-            self.assertEqual(len(self.sent), 1) # who cares what it says..
+            self.assertEqual(len(self.sent), 1)  # who cares what it says..
         return d
 
     @compat.usesFlushLoggedErrors
     def test_handleMessage_exception(self):
         self.patch_send()
+
         def command_TESTY(msg, who):
             raise RuntimeError("FAIL")
         self.contact.command_TESTY = command_TESTY
         d = self.contact.handleMessage('testy boom', 'me')
+
         @d.addCallback
         def cb(_):
             self.assertEqual(self.sent,
-                    [ "Something bad happened (see logs)" ])
+                             ["Something bad happened (see logs)"])
             self.assertEqual(len(self.flushLoggedErrors(RuntimeError)), 1)
         return d
 
     def test_handleMessage_UsageError(self):
         self.patch_send()
+
         def command_TESTY(msg, who):
             raise words.UsageError("oh noes")
         self.contact.command_TESTY = command_TESTY
         d = self.contact.handleMessage('testy boom', 'me')
+
         @d.addCallback
         def cb(_):
-            self.assertEqual(self.sent, [ "oh noes" ])
+            self.assertEqual(self.sent, ["oh noes"])
         return d
 
     def test_handleAction_ignored(self):
@@ -242,6 +366,70 @@ class TestIrcContactChannel(unittest.TestCase):
         self.patch_act()
         self.contact.handleAction('stupids nick', 'me')
         self.assertEqual(self.actions, ['stupids me too'])
+
+    def test_unclosed_quote(self):
+        self.do_test_command('list', args='args\'', exp_UsageError=True)
+        self.do_test_command('status', args='args\'', exp_UsageError=True)
+        self.do_test_command('notify', args='args\'', exp_UsageError=True)
+        self.do_test_command('watch', args='args\'', exp_UsageError=True)
+        self.do_test_command('force', args='args\'', exp_UsageError=True)
+        self.do_test_command('stop', args='args\'', exp_UsageError=True)
+        self.do_test_command('last', args='args\'', exp_UsageError=True)
+        self.do_test_command('help', args='args\'', exp_UsageError=True)
+
+    def test_buildStarted(self):
+        class MockChange(object):
+
+            def __init__(self, revision):
+                self.revision = revision
+
+        def get_name():
+            return "dummy"
+
+        self.patch_send()
+
+        build = mock.Mock()
+        build.getNumber = lambda: 42
+        build.getName = get_name
+        build.category = lambda: ""
+
+        builder = mock.Mock()
+        builder.getName = get_name
+        build.getBuilder = lambda: builder
+
+        self.bot.categories = None
+        self.contact.notify_for = lambda _: True
+        self.contact.useRevisions = False
+
+        # we have no information on included changes
+        build.getChanges = lambda: []
+        self.contact.buildStarted("dummy", build)
+        self.assertEqual(
+            self.sent.pop(),
+            "build #42 of dummy started")
+
+        # we have one change included
+        build.getChanges = lambda: [MockChange("1")]
+        self.contact.buildStarted("dummy", build)
+        self.assertEqual(
+            self.sent.pop(),
+            "build #42 of dummy started (including [1])")
+
+        # we have two changes included (all revisions are printed)
+        build.getChanges = lambda: [MockChange("1"), MockChange("2")]
+        self.contact.buildStarted("dummy", build)
+        self.assertEqual(
+            self.sent.pop(),
+            "build #42 of dummy started (including [1, 2])")
+
+        # we have three changes included (not all revisions are printed)
+        build.getChanges = lambda: [
+            MockChange("1"), MockChange("2"), MockChange("3")
+        ]
+        self.contact.buildStarted("dummy", build)
+        self.assertEqual(
+            self.sent.pop(),
+            "build #42 of dummy started (including [1, 2] and 1 more)")
 
 
 class FakeContact(object):
@@ -271,8 +459,8 @@ class TestIrcStatusBot(unittest.TestCase):
 
     def test_msgOrNotice(self):
         b = self.makeBot(noticeOnChannel=False)
-        b.notice = lambda d, m : evts.append(('n', d, m))
-        b.msg = lambda d, m : evts.append(('m', d, m))
+        b.notice = lambda d, m: evts.append(('n', d, m))
+        b.msg = lambda d, m: evts.append(('m', d, m))
 
         evts = []
         b.msgOrNotice('nick', 'hi')
@@ -349,7 +537,7 @@ class TestIrcStatusBot(unittest.TestCase):
     def test_action_unrelated_buildbot(self):
         b = self.makeBot()
         b.contactClass = FakeContact
-        b.action('jimmy!~foo@bar', '#ch', 'waves at buildbot')# b.nickname is not 'buildbot'
+        b.action('jimmy!~foo@bar', '#ch', 'waves at buildbot')  # b.nickname is not 'buildbot'
 
         c = b.getContact('#ch')
         self.assertEqual(c.actions, [])
@@ -364,12 +552,14 @@ class TestIrcStatusBot(unittest.TestCase):
 
     def test_signedOn(self):
         b = self.makeBot('nick', 'pass',
-                ['#ch1', dict(channel='#ch2', password='sekrits')],
-                ['jimmy', 'bobby'], self.status, [], {})
+                         ['#ch1', dict(channel='#ch2', password='sekrits')],
+                         ['jimmy', 'bobby'], self.status, [], {})
         evts = []
+
         def msg(d, m):
             evts.append(('m', d, m))
         b.msg = msg
+
         def join(channel, key):
             evts.append(('k', channel, key))
         b.join = join
@@ -383,15 +573,15 @@ class TestIrcStatusBot(unittest.TestCase):
             ('m', 'Nickserv', 'IDENTIFY pass'),
         ])
         self.assertEqual(sorted(b.contacts.keys()),
-                # channels don't get added until joined() is called
-                sorted(['jimmy', 'bobby']))
+                         # channels don't get added until joined() is called
+                         sorted(['jimmy', 'bobby']))
 
     def test_joined(self):
         b = self.makeBot()
         b.joined('#ch1')
         b.joined('#ch2')
         self.assertEqual(sorted(b.contacts.keys()),
-                sorted(['#ch1', '#ch2']))
+                         sorted(['#ch1', '#ch2']))
 
     def test_other(self):
         # these methods just log, but let's get them covered anyway
@@ -416,13 +606,14 @@ class TestIrcStatusFactory(unittest.TestCase):
         self.assertTrue(f.shuttingDown)
 
 
-class TestIRC(unittest.TestCase):
+class TestIRC(config.ConfigErrorsMixin, unittest.TestCase):
 
     def makeIRC(self, **kwargs):
         kwargs.setdefault('host', 'localhost')
         kwargs.setdefault('nick', 'russo')
         kwargs.setdefault('channels', ['#buildbot'])
         self.factory = None
+
         def TCPClient(host, port, factory):
             client = mock.Mock(name='tcp-client')
             client.host = host
@@ -454,7 +645,7 @@ class TestIRC(unittest.TestCase):
             allowForce=True,
             categories=['categories'],
             password='pass',
-            notify_events={ 'successToFailure': 1, },
+            notify_events={'successToFailure': 1, },
             noticeOnChannel=True,
             showBlameList=False,
             useRevisions=True,
@@ -473,12 +664,28 @@ class TestIRC(unittest.TestCase):
         p = factory.buildProtocol('address')
         self.assertIdentical(p, proto_obj)
         factory.protocol.assert_called_with(
-                'nick', 'pass', ['channels'], ['pm', 'to', 'nicks'],
-                factory.status, ['categories'], { 'successToFailure': 1 },
-                noticeOnChannel=True,
-                useColors=False,
-                useRevisions=True,
-                showBlameList=False)
+            'nick', 'pass', ['channels'], ['pm', 'to', 'nicks'],
+            factory.status, ['categories'], {'successToFailure': 1},
+            noticeOnChannel=True,
+            useColors=False,
+            useRevisions=True,
+            showBlameList=False)
+
+    def test_allowForce_notBool(self):
+        """
+        When L{IRCClient} is called with C{allowForce} not a boolean,
+        a config error is reported.
+        """
+        self.assertRaisesConfigError("allowForce must be boolean, not",
+                                     lambda: self.makeIRC(allowForce=object()))
+
+    def test_allowShutdown_notBool(self):
+        """
+        When L{IRCClient} is called with C{allowShutdown} not a boolean,
+        a config error is reported.
+        """
+        self.assertRaisesConfigError("allowShutdown must be boolean, not",
+                                     lambda: self.makeIRC(allowShutdown=object()))
 
     def test_service(self):
         irc = self.makeIRC()

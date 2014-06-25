@@ -58,7 +58,7 @@ The slave-side Bot object has the following remote methods:
     ``environ``
         copy of the slaves environment
     ``system``
-        OS the slave is running (extracted from pythons os.name)
+        OS the slave is running (extracted from Python's os.name)
     ``basedir``
         base directory where slave is running
 
@@ -215,7 +215,7 @@ Runs a shell command on the slave.  This command takes the following arguments:
     A dictionary of environment variables to augment or replace the
     existing environment on the slave.  In this dictionary, ``PYTHONPATH``
     is treated specially: it should be a list of path components, rather
-    than a string, and will be prepended to the existing python path.
+    than a string, and will be prepended to the existing Python path.
 
 ``initial_stdin``
 
@@ -454,6 +454,39 @@ It produces two status updates:
 ``rc``
 
     0 if the file is found, otherwise 1.
+
+glob
+....
+
+This command finds all pathnames matching a specified pattern that uses shell-style wildcards.
+It takes a single parameter, ``pathname``, specifying the pattern to pass to Python's
+``glob.glob`` function.
+
+It produces two status updates:
+
+``files``
+
+    The list of matching files returned from ``glob.glob``
+
+``rc``
+
+    0 if the ``glob.glob`` does not raise exception, otherwise 1.
+
+listdir
+.......
+
+This command reads the directory and returns the list with directory contents. It
+takes a single parameter, ``dir``, specifying the directory relative to builder's basedir.
+
+It produces two status updates:
+
+``files``
+
+    The list of files in the directory returned from ``os.listdir``
+
+``rc``
+
+    0 if the ``os.listdir`` does not raise exception, otherwise 1.
 
 Source Commands
 ...............

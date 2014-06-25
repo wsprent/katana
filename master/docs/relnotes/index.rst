@@ -1,56 +1,13 @@
-Release Notes for Buildbot |version|
-====================================
+Release Notes for Buildbot 0.8.9
+================================
 
 ..
     Any change that adds a feature or fixes a bug should have an entry here.
     Most simply need an additional bulleted list item, but more significant
     changes can be given a subsection of their own.
 
-The following are the release notes for Buildbot |version|.
-Buildbot 0.8.7 was released on September 22, 2012.
-Buildbot 0.8.7p1 was released on November 21, 2012.
-
-0.8.7p1
--------
-
-In addition to what's listed below, the 0.8.7p1 release adds the following.
-
-* The ``SetPropertiesFromEnv`` step now correctly gets environment variables from the slave, rather than those set on the master.
-  Also, it logs the changes made to properties.
-
-* The master-side ``Git`` source step now doesn't try to clone a branch called ``HEAD``.
-  This is what ``git`` does by default, and specifying it explicitly doesn't work as expected.
-
-* The ``Git`` step properly deals with the case when there is a file called ``FETCH_HEAD``
-  in the checkout.
-
-* Buildbot no longer forks when told not to daemonize.
-
-* Buildbot's startup is now more robust. See :bb:bug:`1992`.
-
-* The ``Trigger`` step uses the provided list of source stamps exactly, if given, instead of adding them to the sourcestamps of the current build.
-  In 0.8.7, they were combined with the source stamps for the current build.
-
-* The ``Trigger`` step again completely ignores the source stamp of the current build, if ``alwaysUseLatest`` is set.
-  In 0.8.7, this was mistakenly changed to only ignore the specified revision of the source stamp.
-
-* The ``Triggerable`` scheduler is again properly passing changes through to the scheduled builds.
-  See :bb:bug:`2376`.
-
-* Web change hooks log errors, allowing debugging.
-
-* The ``base`` change hook now properly decodes the provided date.
-
-* ``CVSMailDir`` has been fixed.
-
-* Importing ``buildbot.test`` no longer causes python to exit, if ``mock`` insn't installed.
-  The fixes ``pydoc -k`` when buildbot is installed.
-
-* ``Mercurial`` properly updates to the correct branch, when using ``inrepo`` branches.
-
-* Buildbot now doesn't fail on invalid UTF-8 in a number of places.
-
-* Many documenation updates and fixes.
+The following are the release notes for Buildbot 0.8.9. Buildbot 0.8.9 was
+released on 14 June, 2014.
 
 Master
 ------
@@ -58,186 +15,316 @@ Master
 Features
 ~~~~~~~~
 
-* Buildbot now supports building projects composed of multiple codebases.  New
-  schedulers can aggregate changes to multiple codebases into source stamp sets
-  (with one source stamp for each codebase).  Source steps then check out each
-  codebase as required, and the remainder of the build process proceeds
-  normally.  See the :ref:`Multiple-Codebase-Builds` for details.
+* The following optional parameters have been added to :py:class:`EC2LatentBuildSlave`
+   * Boolean parameter ``spot_instance``, default False, creates a spot instance.
+   * Float parameter ``max_spot_price`` defines the maximum bid for a spot instance.
+   * List parameter ``volumes``, takes a list of (volume_id, mount_point) tuples.
+   * String parameter ``placement`` is appended to the ``region`` parameter, e.g. ``region='us-west-2', placement='b'``
+     will result in the spot request being placed in us-west-2b.
+   * Float parameter ``price_multiplier`` specifies the percentage bid above the 24-hour average spot price.
+   * Dict parameter ``tags`` specifies AWS tags as key/value pairs to be applied to new instances.
+  
+  With ``spot_instance=True``, an ``EC2LatentBuildSlave`` will attempt to create a spot instance with the provided spot
+  price, placement, and so on.
 
-  * The format of the ``got_revision`` property has changed for multi-codebase builds.
-    It is now a dictionary keyed by codebase.
+* The web hooks now include support for Bitbucket, GitLab and Gitorious.
 
-* ``Source`` and ``ShellCommand`` steps now have an optional ``descriptionSuffix``, a suffix to the
-  ``description``/``descriptionDone`` values. For example this can help distinguish between
-  multiple ``Compile`` steps that are applied to different codebases.
+* The GitHub webhook has been updated to work with v3 of the GitHub webhook API.
 
-* The ``Git`` step has a new ``getDescription`` option, which will run ``git describe`` after checkout
-  normally.  See :bb:step:`Git` for details.
+* The GitHub webhook can now optionally ignore non-distinct commits (:bb:bug:`1861`).
 
-* A new interpolation placeholder :ref:`Interpolate`, with more regular syntax, is available.
+* The :bb:chsrc:`HgPoller` and :bb:chsrc:`GitPoller` now split filenames on newlines, rather than whitespace, so files containing whitespace are handled correctly.
 
-* A new ternary substitution operator ``:?`` and ``:#?`` is available with the ``Interpolate`` class.
+* Add 'pollAtLaunch' flag for polling change sources. This allows a poller to poll immediately on launch and get changes that occurred while it was down.
 
-* ``IRenderable.getRenderingFor`` can now return a deferred.
+* Added the :bb:chsrc:`BitbucketPullrequestPoller` changesource.
 
-* The mercurial hook now supports multiple masters.  See :bb:pull:`436`.
+* The :bb:chsrc:`GitPoller` can now be configured to poll all available branches (:bb:pull:`1010`).
 
-* There's a new poller for Mercurial: :bb:chsrc:`HgPoller`. 
+* The :bb:chsrc:`P4Source` changesource now supports Perforce servers in a different timezone than the buildbot master (:bb:pull:`728`).
 
-* The new ``HTPasswdAprAuth`` uses libaprutil (through ctypes) to validate
-  the password against the hash from the .htpasswd file. This adds support for
-  all hash types htpasswd can generate.
+* Each Scheduler type can now take a 'reason' argument to customize the reason it uses for triggered builds.
 
-* ``GitPoller`` has been rewritten.
-  It now supports multiple branches and can share a directory between multiple pollers.
-  It is also more resilient to changes in configuration, or in the underlying repository.
+* A new argument ``createAbsoluteSourceStamps`` has been added to :bb:sched:`SingleBranchScheduler` for use with multiple codebases.
 
-* Added a new property ``httpLoginUrl`` to ``buildbot.status.web.authz.Authz``
-  to render a nice Login link in WebStatus for unauthenticated users if
-  ``useHttpHeader`` and ``httpLoginUrl`` are set.
+* A new argument ``createAbsoluteSourceStamps`` has been added to :bb:sched:`Nightly` for use with multiple codebases.
 
-* ``ForceScheduler`` has been updated:
+* The :bb:sched:`Periodic` scheduler now supports codebases.
 
-  * support for multiple :ref:`codebases<Attr-Codebase>` via the ``codebases`` parameter
-  * ``NestedParameter`` to provide a logical grouping of parameters.
-  * ``CodebaseParameter`` to set the branch/revision/repository/project for a codebase
-  * new HTML/CSS customization points. Each parameter is contained in a ``row`` with multiple
-    'class' attributes associated with them (eg, 'force-string' and 'force-nested') as well as a unique
-    id to use with Javascript. Explicit line-breaks have been removed from the HTML generator and
-    are now controlled using CSS. 
+* The :bb:sched:`ForceScheduler` now takes a ``buttonName`` argument to specify the name of the button on the force-build form.
 
-* The :bb:chsrc:`SVNPoller` now supports multiple projects and codebases.
-  See :bb:pull:`443`.
+* Master side source checkout steps now support patches (:bb:bug:`2098`). The :bb:step:`Git` and :bb:step:`Mercurial` steps use their inbuilt commands to apply patches (:bb:bug:`2563`).
 
-* The :bb:status:`MailNotifier` now takes a callable to calculate the "previous" build for purposes of determining status changes.
-  See :bb:pull:`489`.
+* Master side source checkout steps now support retry option (:bb:bug:`2465`).
 
-* The ``copy_properties`` parameter, given a list of properties to copy into the new build request, has been deprecated in favor of explicit use of ``set_properties``.
+* Master-side source checkout steps now respond to the "stop build" button (:bb:bug:`2356`).
 
-* The ``nextSlave`` builder configuration argument can return a Deferred.
+* :bb:step:`Git` source checkout step now supports reference repositories.
+
+* The :bb:step:`Git` step now uses the `git clean` option `-f` twice, to also remove untracked directories managed by another git repository.
+  See :bb:bug:`2560`.
+
+* The ``branch`` and ``codebase`` arguments to the :bb:step:`Git` step are now renderable.
+
+* Gerrit integration with :bb:step:`Git` Source step on master side (:bb:bug:`2485`).
+
+* :bb:step:`P4` source step now supports more advanced options.
+
+* The master-side :bb:step:`SVN` step now supports authentication for mode=export, fixing :bb:bug:`2463`.
+
+* The :bb:step:`SVN` step will now canonicalize URL's before matching them for better accuracy.
+
+* The :bb:step:`SVN` step now obfuscates the password in status logs, fixing :bb:bug:`2468`.
+
+* :bb:step:`SVN` source step and ShellCommand now support password obfuscation. (:bb:bug:`2468` and :bb:bug:`1478`).
+
+* :bb:step:`CVS` source step now checks for "sticky dates" from a previous checkout before updating an existing source directory.
+
+* ::bb:step:`Repo` now supports a ``depth`` flag when initializing the repo. This controls the amount of git history to download.
+
+* The ``manifestBranch`` of the bb:step:`Repo` step is now renderable
+
+* New source step :bb:step:`Monotone` added on master side.
+
+* New source step :bb:step:`Darcs` added on master side.
+
+* A new :bb:step:`Robocopy` step is available for Windows builders (:bb:pull:`728`).
+
+* The attributes ``description``, ``descriptionDone`` and ``descriptionSuffix`` have been moved from :py:class:`ShellCommand` to its superclass :py:class:`BuildStep` so that any class that inherits from :py:class:`BuildStep` can provide a suitable description of itself.
+
+* A new :py:class:`FlattenList` Renderable has been added which can flatten nested lists.
+
+* Added new build steps for :bb:step:`VC12`, :bb:step:`VS2013` and :bb:step:`MsBuild12`.
+
+* The ``mode`` parameter of the VS steps is now renderable (:bb:bug:`2592`).
+
+* The :bb:step:`HTTPStep` step can make arbitrary HTTP requests from the master, allowing communication with external APIs.
+  This new feature requires the optional ``txrequests`` and ``requests`` Python packages.
+
+* A new :bb:step:`MultipleFileUpload` step was added to allow uploading several files (or directories) in a single step.
+
+* Information about the buildslaves (admin, host, etc) is now persisted in the database and available even if
+  the slave is not connected.
+
+* Buildslave info can now be retrieved via :ref:`Interpolate` and a new :bb:step:`SetSlaveInfo` buildstep.
+
+* The ``GNUAutotools`` factory now has a reconf option to run autoreconf before ``./configure``.
+
+* Builder configurations can now include a ``description``, which will appear in the web UI to help humans figure out what the builder does.
+
+* The WebStatus builder page can now filter pending/current/finished builds by property parameters of the form ``?property.<name>=<value>``.
+
+* The WebStatus ``StatusResourceBuilder`` page can now take the ``maxsearch`` argument
+
+* The WebStatus has a new authz "view" action that allows you to require users to logged in to view the WebStatus.
+
+* The WebStatus now shows revisions (+ codebase) where it used to simply say "multiple rev".
+
+* The Console view now supports codebases.
+
+* The web UI for Builders has been updated:
+   * shows the build 'reason' and 'interested users'
+   * shows sourcestamp information for builders that use multiple codebases (instead of the generic
+     "multiple rev" placeholder that was shown before).
+
+* The waterfall and atom/rss feeds can be filtered with the ``project`` url paramter.
+
+* The WebStatus :ref:`Authorization` support now includes a ``view`` action which can be used to restrict read-only access to the Buildbot instance.
+
+* The web status now has options to cancel some or all pending builds.
+
+* The WebStatus now interprets ANSI color codes in stdio output.
+
+* It is now possible to select categories to show in the waterfall help
+
+* The web status now automatically scrolls output logs (:bb:pull:`1078`).
+
+* The web UI now supports a PNG Status Resource that can be accessed publicly from for example README.md files or wikis or whatever other resource.
+  This view produces an image in PNG format with information about the last build for the given builder name or whatever other build number if is passed as an argument to the view.
+
+* Revision links for commits on SouceForge (Allura) are now automatically generated.
+
+* The 'Rebuild' button on the web pages for builds features a dropdown to choose whether to
+  rebuild from exact revisions or from the same sourcestamps (ie, update branch references)
+
+* Build status can be sent to GitHub.
+  Depends on txgithub package.
+  See :bb:status:`GitHubStatus` and `GitHub Commit Status <https://github.com/blog/1227-commit-status-api>`_.
+
+* The IRC bot of :bb:status:`IRC` will, unless useRevisions is set, shorten
+  long lists of revisions printed when a build starts; it will only show two,
+  and the number of additional revisions included in the build.
+
+* A new argument ``summaryCB`` has been added to ``GerritStatusPush``, to allow sending one review per buildset. Sending a single "summary" review per buildset is now the default if neither ``summaryCB`` nor ``reviewCB`` are specified.
+
+* The ``comments`` field of changes is no longer limited to 1024 characters on MySQL and Postgres.  See :bb:bug:`2367` and :bb:pull:`736`.
+
+* HTML log files are no longer stored in status pickles (:bb:pull:`1077`)
+
+* Builds are now retried after a slave is lost (:bb:pull:`1049`).
+
+* The buildbot status client can now access a build properties via the ``getProperties`` call.
+
+* The ``start``, ``restart``, and ``reconfig`` commands will now wait for longer than 10 seconds as long as the master continues producing log lines indicating that the configuration is progressing.
+
+* Added new config option ``protocols`` which allows to configure multiple protocols on single master.
+
+* RemoteShellCommands can be killed by SIGTERM with the sigtermTime parameter before resorting to SIGKILL (:bb:bug:`751`).
+  If the slave's version is less than 0.8.9, the slave will kill the process with SIGKILL regardless of whether sigtermTime
+  is supplied.
+
+* Introduce an alternative way to deploy Buildbot and try the pyflakes tutorial
+  using :ref:`Docker <first-run-docker-label>`.
+
+* Added zsh and bash tab-completions support for 'buildbot' command.
+
+* An example of a declarative configuration is included in :bb:src:`master/contrib/SimpleConfig.py`, with copious comments.
+
+* Systemd unit files for Buildbot are available in the :bb:src:`contrib/` directory.
+
+* We've added some extra checking to make sure that you have a valid locale before starting buildbot (#2608).
+
+
+Forward Compatibility
+~~~~~~~~~~~~~~~~~~~~~
+
+In preparation for a more asynchronous implementation of build steps in Buildbot 0.9.0, this version introduces support for new-style steps.
+Existing old-style steps will continue to function correctly in Buildbot 0.8.x releases and in Buildbot 0.9.0, but support will be dropped soon afterward.
+See :ref:`New-Style-Build-Steps` for guidance on rewriting existing steps in this new style.
+To eliminate ambiguity, the documentation for this version only reflects support for new-style steps.
+Refer to the documentation for previous versions for infrormation on old-style steps.
+
+Fixes
+~~~~~
+
+* Fixes an issue where :bb:chsrc:`GitPoller` sets the change branch to ``refs/heads/master`` - which isn't compatible with :bb:step:`Git` (:bb:pull:`1069`).
+
+* Fixed an issue where the :bb:step:`Git` and :bb:step:`CVS` source steps silently changed the ``workdir`` to ``'build'`` when the 'copy' method is used.
+
+* The :bb:step:`CVS` source step now respects the timeout parameter.
+
+* The :bb:step:`Git` step now uses the `git submodule update` option `--init` when updating the submodules of an existing repository,
+  so that it will receive any newly added submodules.
+
+* The web status no longer relies on the current working directory, which is not set correctly by some initscripts, to find the ``templates/`` directory (:bb:bug:`2586`).
+
+* The Perforce source step uses the correct path separator when the master is on Windows and the build slave is on a POSIX OS (:bb:pull:`1114`).
+
+* The source steps now correctly interpolate properties in ``env``.
+
+* ``GerritStatusPush`` now supports setting scores with Gerrit 2.6 and newer
+
+* The change hook no longer fails when passing unicode to ``change_hook_auth`` (:bb:pull:`996`).
+
+* The source steps now correctly interpolate properties in ``env``.
+
+* Whitespace is properly handled for StringParameter, so that appropriate validation errors are raised for ``required`` parameters (:bb:pull:`1084`).
+
+* Fix a rare case where a buildtep might fail from a GeneratorExit exception (:bb:pull:`1063`).
+
+* Fixed an issue where UTF-8 data in logs caused RSS feed exceptions (:bb:bug:`951`).
+
+* Fix an issue with unescaped author names causing invalid RSS feeds (:bb:bug:`2596`).
+
+* Fixed an issue with pubDate format in feeds.
+
+* Fixed an issue where the step text value could cause a ``TypeError`` in the build detail page (:bb:pull:`1061`).
+
+* Fix failures where ``git clean`` fails but could be clobbered (:bb:pull:`1058`).
+
+* Build step now correctly fails when the git clone step fails (:bb:pull:`1057`).
+
+* Fixed a race condition in slave shutdown (:bb:pull:`1019`).
+
+* Now correctly unsubscribes StatusPush from status updates when reconfiguring (:bb:pull:`997`).
+
+* Fixes parsing git commit messages that are blank.
+
+* :bb:step:`Git` no longer fails when work dir exists but isn't a checkout (:bb:bug:`2531`).
+
+* The `haltOnFailure` and `flunkOnFailure` attricutes of :bb:step:`ShellCommand` are now renderable. (:bb:bug `2486`).
+
+* The `rotateLength` and `maxRotatedFile` arguments are no longer treated as strings in buildbot.tac. This fixes log rotation. The upgrade_master command will notify users if they have this problem.
+
+* Builbot no longer specifies a revision when pulling from a mercurial (:bb:bug:`438`).
+
+* The WebStatus no longer incorrectly refers to fields that might not be visible.
+
+* The GerritChangeSource now sets a default author, fixing an exception that occured when Gerrit didn't report an owner name/email.
+
+* Respects the ``RETRY`` status when an interrupt occurs.
+
+* Fixes an off-by-one error when the tryclient is finding the current git branch.
+
+* Improve the Mercurial source stamp extraction in the try client.
+
+* Fixes some edge cases in timezone handling for python < ``2.7.4`` (:bb:bug:`2522`).
+
+* The ``EC2LatentBuildSlave`` will now only consider available AMI's.
+
+* Fixes a case where the first build runs on an old slave instead of a new one after reconfig (:bb:bug:`2507`).
+
+* The e-mail address validation for the MailNotifier status receiver has been improved.
+
+* The ``--db`` parameter of ``buildbot create-master`` is now validated.
+
+* No longer ignores default choice for ForceScheduler list parameters
+
+* Now correctly handles ``BuilderConfig(..., mergeRequests=False)`` (:bb:bug:`2555`).
+
+* Now excludes changes from sourcestamps when they aren't in the DB (:bb:bug:`2554`).
+
+* Fixes a compatibility issue with HPCloud in the OpenStack latent slave.
+
+* Allow ``_`` as a valid character in JSONP callback names.
+
+* Fix build start time retrieval in the WebStatus grid view.
+
+* Increase the length of the DB fields ``changes.comments`` and ``buildset_properties.property_value``.
+
 
 Deprecations, Removals, and Non-Compatible Changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-* Buildbot master now requires at least Python-2.5 and Twisted-9.0.0.
+* The slave-side source steps are deprecated in this version of Buildbot, and master-side support will be removed in a future version.
+  Please convert any use of slave-side steps (imported directly from ``buildbot.steps.source``, rather than from a specific module like ``buildbot.steps.source.svn``) to use master-side steps.
 
-* Passing a :py:class:`~buildbot.process.buildstep.BuildStep` subclass (rather than instance) to :py:meth:`~buildbot.process.factory.BuildFactory.addStep` is no longer supported.
-  The ``addStep`` method now takes exactly one argument.
+* Both old-style and new-style steps are supported in this version of Buildbot.
+  Upgrade your steps to new-style now, as support for old-style steps will be dropped after Buildbot-0.9.0.
+  See :ref:`New-Style-Build-Steps` for details.
 
-* Buildbot master requires ``python-dateutil`` version 1.5 to support the
-  Nightly scheduler.
+  * The ``LoggingBuildStep`` class has been deprecated, and support will be removed along with support for old-style steps after the Buildbot-0.9.0 release.
+    Instead, subclass :class:`~buildbot.process.buildstep.BuildStep` and mix in :class:`~buildbot.process.buildstep.ShellMixin` to get similar behavior.
 
-* ``ForceScheduler`` has been updated to support multiple :ref:`codebases<Attr-Codebase>`.
-  The branch/revision/repository/project are deprecated; if you have customized these
-  values, simply provide them as ``codebases=[CodebaseParameter(name='', ...)]``.
+* ``slavePortnum`` option deprecated, please use ``c['protocols']['pb']['port']`` to set up PB port
 
-    * The POST URL names for ``AnyPropertyParameter`` fields have changed. For example,
-      'property1name' is now 'property1_name', and 'property1value' is now 'property1_value'.
-      Please update any bookmarked or saved URL's that used these fields.
+* The buildbot.process.mtrlogobserver module have been renamed to buildbot.steps.mtrlogobserver.
 
-    * ``forcesched.BaseParameter`` API has changed quite a bit and is no longer backwards
-      compatible. Updating guidelines:
+* The buildmaster now requires at least Twisted-11.0.0.
 
-      * ``get_from_post`` is renamed to ``getFromKwargs``
+* The buildmaster now requires at least sqlalchemy-migrate 0.6.1.
 
-      * ``update_from_post`` is renamed to ``updateFromKwargs``. This function's parameters
-        are now called via named parameters to allow subclasses to ignore values it doesnt use.
-        Subclasses should add ``**unused`` for future compatibility. A new parameter
-        ``sourcestampset`` is provided to allow subclasses to modify the sourcestamp set, and
-        will probably require you to add the ``**unused`` field.
+* The ``hgbuildbot`` Mercurial hook has been moved to ``contrib/``, and does not work with recent versions of Mercurial and Twisted.
+  The runtimes for these two tools are incompatible, yet ``hgbuildbot`` attempts to run both in the same Python interpreter.
+  Mayhem ensues.
 
-* The parameters to the callable version of ``build.workdir`` have changed.
-  Instead of a single sourcestamp, a list of sourcestamps is passed. Each
-  sourcestamp in the list has a different :ref:`codebase<Attr-Codebase>`
+* The try scheduler's ``--connect=ssh`` method no longer supports waiting for results (``--wait``).
 
-* The undocumented renderable ``_ComputeRepositoryURL`` is no longer imported to
-  :py:mod:`buildbot.steps.source`. It is still available at
-  :py:mod:`buildbot.steps.source.oldsource`.
+* The former ``buildbot.process.buildstep.RemoteCommand`` class and its subclasses are now in :py:mod:`buildbot.process.remotecommand`, although imports from the previous path will continue to work.
+  Similarly, the former ``buildbot.process.buildstep.LogObserver`` class and its subclasses are now in :py:mod:`buildbot.process.logobserver`, although imports from the previous path will continue to work.
 
-* ``IProperties.render`` now returns a deferred, so any code rendering properties
-  by hand will need to take this into account.
+* The undocumented BuildStep method ``checkDisconnect`` is deprecated and now does nothing as the handling of disconnects is now handled in the ``failed`` method.
+  Any custom steps adding this method as a callback or errback should no longer do so.
 
-* ``baseURL`` has been removed in :bb:step:`SVN` to use just ``repourl`` - see
-  :bb:bug:`2066`. Branch info should be provided with ``Interpolate``. ::
+* The build step ``MsBuild`` is now called ``MsBuild4`` as multiple versions are now supported. An alias is provided so existing setups will continue to work, but this will be removed in a future release.
 
-    from buildbot.steps.source.svn import SVN
-    factory.append(SVN(baseURL="svn://svn.example.org/svn/"))
-
-  can be replaced with ::
-
-    from buildbot.process.properties import Interpolate
-    from buildbot.steps.source.svn import SVN
-    factory.append(SVN(repourl=Interpolate("svn://svn.example.org/svn/%(src::branch)s")))
-
-  and ::
-
-    from buildbot.steps.source.svn import SVN
-    factory.append(SVN(baseURL="svn://svn.example.org/svn/%%BRANCH%%/project"))
-
-  can be replaced with ::
-
-    from buildbot.process.properties import Interpolate
-    from buildbot.steps.source.svn import SVN
-    factory.append(SVN(repourl=Interpolate("svn://svn.example.org/svn/%(src::branch)s/project")))
-
-  and ::
-
-    from buildbot.steps.source.svn import SVN
-    factory.append(SVN(baseURL="svn://svn.example.org/svn/", defaultBranch="branches/test"))
-
-  can be replaced with ::
-
-    from buildbot.process.properties import Interpolate
-    from buildbot.steps.source.svn import SVN
-    factory.append(SVN(repourl=Interpolate("svn://svn.example.org/svn/%(src::branch:-branches/test)s")))
-
-* The ``P4Sync`` step, deprecated since 0.8.5, has been removed.  The ``P4`` step remains.
-
-* The ``fetch_spec`` argument to ``GitPoller`` is no longer supported.
-  ``GitPoller`` now only downloads branches that it is polling, so specifies a refspec itself.
-
-* The format of the changes produced by :bb:chsrc:`SVNPoller` has changed: directory pathnames end with a forward slash.
-  This allows the ``split_file`` function to distinguish between files and directories.
-  Customized split functions may need to be adjusted accordingly.
-
-* :ref:`WithProperties` has been deprecated in favor of :ref:`Interpolate`.
-  `Interpolate` doesn't handle functions as keyword arguments.
-  The following code using ``WithProperties`` ::
-
-    from buildbot.process.properties import WithProperties
-    def determine_foo(props):
-        if props.hasProperty('bar'):
-            return props['bar']
-        elif props.hasProperty('baz'):
-            return props['baz']
-        return 'qux'
-    WithProperties('%(foo)s', foo=determine_foo)
-
-  can be replaced with ::
-
-    from zope.interface import implementer
-    from buildbot.interfaces import IRenderable
-    from buildbot.process.properties import Interpolate
-    @implementer(IRenderable)
-    class determineFoo(object):
-        def getRenderingFor(self, props):
-            if props.hasProperty('bar'):
-                return props['bar']
-            elif props.hasProperty('baz'):
-                return props['baz']
-            return 'qux'
-    Interpolate('%s(kw:foo)s', foo=determineFoo())
 
 Changes for Developers
 ~~~~~~~~~~~~~~~~~~~~~~
 
-* ``BuildStep.start`` can now optionally return a deferred and any errback will
-  be handled gracefully. If you use ``inlineCallbacks``, this means that unexpected
-  exceptions and failures raised will be captured and logged and the build shut
-  down normally.
+* The :py:class:`CompositeStepMixin` now provides a ``runGlob`` method to check for files on the slave that match a given shell-style pattern.
 
-* The helper methods ``getState`` and ``setState`` from ``BaseScheduler`` have
-  been factored into ``buildbot.util.state.StateMixin`` for use elsewhere.
+* The :py:class:`BuilderStatus` now allows you to pass a ``filter_fn`` arguent to ``generateBuilds``.
 
 Slave
 -----
@@ -245,10 +332,29 @@ Slave
 Features
 ~~~~~~~~
 
+* Added zsh and bash tab-completions support for 'buildslave' command.
+* RemoteShellCommands accept the new sigtermTime parameter from master. This allows processes to be killed by SIGTERM
+  before resorting to SIGKILL (:bb:bug:`751`)
+* Commands will now throw a ``ValueError`` if mandatory args are not present.
+* Added a new remote command :py:class:`GlobPath` that can be used to call Python's ``glob.glob`` on the slave.
+
+Fixes
+~~~~~
+
+* Fixed an issue when buildstep stop() was raising an exception incorrectly if timeout for
+  buildstep wasn't set or was None (see :bb:pull:`753`) thus keeping watched logfiles open
+  (this prevented their removal on Windows in subsequent builds).
+
+* Fixed a bug in P4 source step where the ``timeout`` parameter was ignored.
+
+* Fixed a bug in P4 source step where using a custom view-spec could result in failed syncs
+  due to incorrectly generated command-lines.
+
+* The logwatcher will use ``/usr/xpg4/bin/tail`` on Solaris, it if is available (:bb:pull:`1065`).
+
+
 Deprecations, Removals, and Non-Compatible Changes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-* The ``P4Sync`` step, deprecated since 0.8.5, has been removed.  The ``P4`` step remains.
 
 Details
 -------
@@ -256,7 +362,9 @@ Details
 For a more detailed description of the changes made in this version, see the
 git log itself:
 
-   git log v0.8.6..v0.8.7
+.. code-block:: bash
+
+   git log v0.8.8..v0.8.9
 
 Older Versions
 --------------
@@ -267,4 +375,6 @@ Newer versions are also available here:
 .. toctree::
     :maxdepth: 1
 
+    0.8.8
+    0.8.7
     0.8.6

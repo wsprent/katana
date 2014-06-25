@@ -15,20 +15,51 @@
 
 from __future__ import with_statement
 
-import os
 import copy
+import os
 import stat
-from twisted.python import usage, runtime
+
+from twisted.python import runtime
+from twisted.python import usage
+
 
 def isBuildmasterDir(dir):
+    def print_error(error_message):
+        print "%s\ninvalid buildmaster directory '%s'" % (error_message, dir)
+
     buildbot_tac = os.path.join(dir, "buildbot.tac")
-    if not os.path.isfile(buildbot_tac):
-        print "no buildbot.tac"
+    try:
+        contents = open(buildbot_tac).read()
+    except IOError, exception:
+        print_error("error reading '%s': %s" %
+                    (buildbot_tac, exception.strerror))
         return False
 
-    with open(buildbot_tac, "r") as f:
-        contents = f.read()
-    return "Application('buildmaster')" in contents
+    if "Application('buildmaster')" not in contents:
+        print_error("unexpected content in '%s'" % buildbot_tac)
+        return False
+
+    return True
+
+
+def getConfigFromTac(basedir):
+    tacFile = os.path.join(basedir, 'buildbot.tac')
+    if os.path.exists(tacFile):
+        # don't mess with the global namespace, but set __file__ for relocatable buildmasters
+        tacGlobals = {'__file__': tacFile}
+        execfile(tacFile, tacGlobals)
+        return tacGlobals
+    return None
+
+
+def getConfigFileFromTac(basedir):
+    # execute the .tac file to see if its configfile location exists
+    config = getConfigFromTac(basedir)
+    if config:
+        return config.get("configfile", "master.cfg")
+    else:
+        return "master.cfg"
+
 
 class SubcommandOptions(usage.Options):
     # subclasses should set this to a list-of-lists in order to source the
@@ -90,9 +121,9 @@ class SubcommandOptions(usage.Options):
             searchpath.append(os.path.join(here, ".buildbot"))
             next = os.path.dirname(here)
             if next == here:
-                break # we've hit the root
+                break  # we've hit the root
             here = next
-            toomany -= 1 # just in case
+            toomany -= 1  # just in case
             if toomany == 0:
                 print ("I seem to have wandered up into the infinite glories "
                        "of the heavens. Oops.")
@@ -107,7 +138,7 @@ class SubcommandOptions(usage.Options):
                 if runtime.platformType != 'win32':
                     if os.stat(d)[stat.ST_UID] != os.getuid():
                         print "skipping %s because you don't own it" % d
-                        continue # security, skip other people's directories
+                        continue  # security, skip other people's directories
                 optfile = os.path.join(d, "options")
                 if os.path.exists(optfile):
                     try:
@@ -125,7 +156,7 @@ class SubcommandOptions(usage.Options):
         return localDict
 
     def postOptions(self):
-        missing = [ k for k in self.requiredOptions if self[k] is None ]
+        missing = [k for k in self.requiredOptions if self[k] is None]
         if missing:
             if len(missing) > 1:
                 msg = 'Required arguments missing: ' + ', '.join(missing)
@@ -133,10 +164,18 @@ class SubcommandOptions(usage.Options):
                 msg = 'Required argument missing: ' + missing[0]
             raise usage.UsageError(msg)
 
+
 class BasedirMixin(object):
 
     """SubcommandOptions Mixin to handle subcommands that take a basedir
     argument"""
+
+    # on tab completion, suggest directories as first argument
+    if hasattr(usage, 'Completions'):
+        # only set completion suggestion if running with
+        # twisted version (>=11.1.0) that supports it
+        compData = usage.Completions(
+            extraActions=[usage.CompleteDirs(descr="buildbot base directory")])
 
     def parseArgs(self, *args):
         if len(args) > 0:

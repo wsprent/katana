@@ -15,25 +15,33 @@
 
 from __future__ import with_statement
 
-import os, shutil, re
-from cPickle import dump
-from zope.interface import implements
-from twisted.python import log, runtime, components
-from twisted.persisted import styles
-from twisted.internet import reactor, defer
-from buildbot import interfaces, util, sourcestamp
+import os
+import re
+import shutil
+
+from buildbot import interfaces
+from buildbot import sourcestamp
+from buildbot import util
 from buildbot.process import properties
 from buildbot.status.buildstep import BuildStepStatus
 from buildbot.status.results import SUCCESS, NOT_REBUILT, SKIPPED
 from buildbot.steps.artifact import AcquireBuildLocks
 from buildbot.steps.trigger import Trigger
+from cPickle import dump
+from twisted.internet import defer
+from twisted.internet import reactor
+from twisted.persisted import styles
+from twisted.python import components
+from twisted.python import log
+from twisted.python import runtime
+from zope.interface import implements
 
 
 class BuildStatus(styles.Versioned, properties.PropertiesMixin):
     implements(interfaces.IBuildStatus, interfaces.IStatusEvent)
 
     persistenceVersion = 4
-    persistenceForgets = ( 'wasUpgraded', )
+    persistenceForgets = ('wasUpgraded', )
 
     sources = None
     reason = None
@@ -92,7 +100,7 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
     def getPreviousBuild(self):
         if self.number == 0:
             return None
-        return self.builder.getBuild(self.number-1)
+        return self.builder.getBuild(self.number - 1)
 
     def getAllGotRevisions(self):
         all_got_revisions = self.properties.getProperty('got_revision', {})
@@ -147,7 +155,7 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
 
     def getInterestedUsers(self):
         # TODO: the Builder should add others: sheriffs, domain-owners
-        return self.blamelist + self.properties.getProperty('owners', [])
+        return self.properties.getProperty('owners', [])
 
     def getSteps(self):
         """Return a list of IBuildStepStatus objects. For invariant builds
@@ -173,7 +181,8 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
                         rawBuildTime -= (times[1] - times[0])
             return self.started, self.finished, rawBuildTime
 
-    _sentinel = [] # used as a sentinel to indicate unspecified initial_value
+    _sentinel = []  # used as a sentinel to indicate unspecified initial_value
+
     def getSummaryStatistic(self, name, summary_fn, initial_value=_sentinel):
         """Summarize the named statistic over all steps in which it
         exists, using combination_fn and initial_value to combine multiple
@@ -182,9 +191,9 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
             return reduce(summary_fn, step_stats_list, initial_value)
         """
         step_stats_list = [
-                st.getStatistic(name)
-                for st in self.steps
-                if st.hasStatistic(name) ]
+            st.getStatistic(name)
+            for st in self.steps
+            if st.hasStatistic(name)]
         if initial_value is self._sentinel:
             return reduce(summary_fn, step_stats_list)
         else:
@@ -218,7 +227,7 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
         return self.currentStep
 
     # Once you know the build has finished, the following methods are legal.
-    # Before ths build has finished, they all return None.
+    # Before this build has finished, they all return None.
 
     def getText(self):
         text = []
@@ -298,6 +307,7 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
 
     def setBlamelist(self, blamelist):
         self.blamelist = blamelist
+
     def setProgress(self, progress):
         self.progress = progress
 
@@ -316,6 +326,7 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
     def setText(self, text):
         assert isinstance(text, (list, tuple))
         self.text = text
+
     def setResults(self, results):
         self.results = results
 
@@ -340,7 +351,7 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
         for w in self.watchers:
             receiver = w.stepStarted(self, step)
             if receiver:
-                if type(receiver) == type(()):
+                if isinstance(receiver, type(())):
                     step.subscribe(receiver[0], receiver[1])
                 else:
                     step.subscribe(receiver)
@@ -399,9 +410,10 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
             # was interrupted. The builder will have a 'shutdown' event, but
             # someone looking at just this build will be confused as to why
             # the last log is truncated.
-        for k in [ 'builder', 'watchers', 'updates', 'finishedWatchers',
-                   'master' ]:
-            if k in d: del d[k]
+        for k in ['builder', 'watchers', 'updates', 'finishedWatchers',
+                  'master']:
+            if k in d:
+                del d[k]
         return d
 
     def __setstate__(self, d):
@@ -415,6 +427,7 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
         self.master = master
         for step in self.steps:
             step.setProcessObjects(self, master)
+
     def upgradeToVersion1(self):
         if hasattr(self, "sourceStamp"):
             # the old .sourceStamp attribute wasn't actually very useful
@@ -446,7 +459,7 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
             self.sources = [self.source]
             del self.source
         self.wasUpgraded = True
-        
+
     def checkLogfiles(self):
         # check that all logfiles exist, and remove references to any that
         # have been deleted (e.g., by purge())
@@ -462,7 +475,7 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
         try:
             with open(tmpfilename, "wb") as f:
                 dump(self, f, -1)
-            if runtime.platformType  == 'win32':
+            if runtime.platformType == 'win32':
                 # windows cannot rename a file on top of an existing one, so
                 # fall back to delete-first. There are ways this can fail and
                 # lose the builder's history, so we avoid using it in the
@@ -614,17 +627,21 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
         #result['test_results'] = self.getTestResults()
         args = getCodebasesArg(request)
         result['logs'] = [[l.getName(),
-                           self.master.status.getURLForThing(l) + args] for l in self.getLogs()]
+                           self.builder.status.getURLForThing(l)] for l in self.getLogs()]
 
         result['isWaiting'] = False
 
+        result['eta'] = self.getETA()
         result['steps'] = [bss.asDict(request) for bss in self.steps]
-        result = self.currentStepDict(result)
+        if self.getCurrentStep():
+            result['currentStep'] = self.getCurrentStep().asDict()
+        else:
+            result['currentStep'] = None
 
         # Transient
         result['properties'] = self.getProperties().asList()
 
         return result
 
-components.registerAdapter(lambda build_status : build_status.properties,
-        BuildStatus, interfaces.IProperties)
+components.registerAdapter(lambda build_status: build_status.properties,
+                           BuildStatus, interfaces.IProperties)

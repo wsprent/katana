@@ -4,6 +4,10 @@
 Schedulers
 ----------
 
+.. contents::
+    :depth: 1
+    :local:
+
 Schedulers are responsible for initiating builds on builders.
 
 Some schedulers listen for changes from ChangeSources and generate build sets
@@ -106,6 +110,14 @@ available with all schedulers.
     ``False`` and only applies when ``fileIsImportant`` is
     given.
 
+``reason``
+    A string that will be used as the reason for the triggered build.
+
+``createAbsoluteSourceStamps``
+    This option only has effect when using multiple codebases. When ``True``, it
+    uses the last seen revision for each codebase that does not have a change.
+    When ``False``, the default value, codebases without changes will use the
+    revision from the ``codebases`` argument.
 
 The remaining subsections represent a catalog of the available Scheduler types.
 All these Schedulers are defined in modules under :mod:`buildbot.schedulers`,
@@ -210,6 +222,13 @@ on some set of Builders. The Scheduler accepts a :meth:`fileIsImportant`
 function which can be used to ignore some Changes if they do not
 affect any *important* files.
 
+If ``treeStableTimer`` is not set, then this scheduler starts a build for every Change that matches its ``change_filter`` and statsfies :meth:`fileIsImportant`.
+If ``treeStableTimer`` is set, then a build is triggered for each set of Changes which arrive within the configured time, and match the filters.
+
+.. note:: The behavior of this scheduler is undefined, if ``treeStableTimer`` is set, and changes from multiple branches, repositories or codebases are accepted by the filter.
+
+.. note:: The ``codebases`` argument will filter out codebases not specified there, but *won't* filter based on the branches specified there.
+
 The arguments to this scheduler are:
 
 ``name``
@@ -223,6 +242,10 @@ The arguments to this scheduler are:
 ``change_filter``
 
 ``onlyImportant``
+
+``reason``
+
+``createAbsoluteSourceStamps``
     See :ref:`Configuring-Schedulers`.
 
 ``treeStableTimer``
@@ -292,6 +315,9 @@ AnyBranchScheduler
 This scheduler uses a tree-stable-timer like the default one, but
 uses a separate timer for each branch.
 
+If ``treeStableTimer`` is not set, then this scheduler is indistinguishable from bb:sched:``SingleBranchScheduler``.
+If ``treeStableTimer`` is set, then a build is triggered for each set of Changes which arrive within the configured time, and match the filters.
+
 The arguments to this scheduler are:
 
 ``name``
@@ -305,6 +331,8 @@ The arguments to this scheduler are:
 ``change_filter``
 
 ``onlyImportant``
+
+``reason``
     See :ref:`Configuring-Schedulers`.
 
 ``treeStableTimer``
@@ -401,6 +429,9 @@ The arguments to this scheduler are:
 
 ``onlyImportant``
 
+``reason``
+    See :ref:`Configuring-Schedulers`.
+
 ``periodicBuildTimer``
     The time, in seconds, after which to start a build.
 
@@ -454,10 +485,14 @@ The full list of parameters is:
 
 ``onlyImportant``
 
+``reason``
+
 ``codebases``
-    See :ref:`Configuring-Schedulers`.  Note that ``fileIsImportant`` and
-    ``change_filter`` are only relevant if ``onlyIfChanged`` is
-    ``True``.
+
+``createAbsoluteSourceStamps``
+    See :ref:`Configuring-Schedulers`.  Note that ``fileIsImportant``,
+    ``change_filter`` and ``createAbsoluteSourceStamps`` are only relevant
+    if ``onlyIfChanged`` is ``True``.
 
 ``onlyIfChanged``
     If this is true, then builds will not be scheduled at the designated time
@@ -808,7 +843,7 @@ Here is a fully-worked example::
     # on checkin, run tests
     checkin_factory = factory.BuildFactory()
     checkin_factory.addStep(shell.Test())
-    checkin_factory.addStep(trigger.Trigger(schedulerNames=['nightly'])
+    checkin_factory.addStep(trigger.Trigger(schedulerNames=['nightly']))
 
     # and every night, package the latest successful build
     nightly_factory = factory.BuildFactory()
@@ -844,6 +879,12 @@ The scheduler takes the following parameters:
     A :ref:`parameter <ForceScheduler-Parameters>` specifying the reason for
     the build.  The default value is a string parameter with value "force build".
 
+``reasonString``
+
+    A string that will be used to create the build reason for the forced build. This
+    string can contain the placeholders '%(owner)s' and '%(reason)s', which represents
+    the value typed into the reason field.
+
 ``username``
 
     A :ref:`parameter <ForceScheduler-Parameters>` specifying the project for
@@ -860,6 +901,11 @@ The scheduler takes the following parameters:
     property.  These can be arbitrary parameters, where the parameter's name is
     taken as the property name, or ``AnyPropertyParameter``, which allows the
     web user to specify the property name.
+
+``buttonName``
+
+    The name of the "submit" button on the resulting force-build form.
+    This defaults to "Force Build".
 
 An example may be better than long explanation.  What you need in your config
 file is something like::
@@ -896,7 +942,7 @@ file is something like::
                                 label="force a make clean", default=False),
 
                     StringParameter(name="pull_url",
-                        label="optionally give a public git pull url:<br>",
+                        label="optionally give a public Git pull url:<br>",
                         default="", size=80)
                  ]
                  )
@@ -979,7 +1025,7 @@ StringParameter
 ::
 
     StringParameter(name="pull_url",
-        label="optionally give a public git pull url:<br>",
+        label="optionally give a public Git pull url:<br>",
         default="", size=80)
 
 This parameter type will show a single-line text-entry box, and allow the user
@@ -1017,7 +1063,7 @@ the StringParameter arguments, this type allows:
 
 This class could be subclassed in order to have more customization e.g.
 
-    * developer could send a list of git branches to pull from
+    * developer could send a list of Git branches to pull from
 
     * developer could send a list of gerrit changes to cherry-pick,
 
@@ -1061,6 +1107,8 @@ use the authenticated user instead of displaying a text-entry box.
 ``need_email`` (optional; default True)
     If true, require a full email address rather than arbitrary text.
 
+.. bb:sched:: ChoiceStringParameter
+
 ChoiceStringParameter
 #####################
 
@@ -1072,8 +1120,13 @@ ChoiceStringParameter
 This parameter type lets the user choose between several choices (e.g the list
 of branches you are supporting, or the test campaign to run).  If ``multiple``
 is false, then its result is a string - one of the choices.  If ``multiple`` is
-true, then the result is a list of strings from the choices.  Its arguments, in
-addition to the common options, are:
+true, then the result is a list of strings from the choices.
+
+Note that for some use cases, the choices need to be generated dynamically. This can
+be done via subclassing and overiding the 'getChoices' member function. An example
+of this is provided by the source for the :py:class:`InheritBuildParameter` class.
+
+Its arguments, in addition to the common options, are:
 
 ``choices``
 
@@ -1100,7 +1153,6 @@ Example::
             choices = [ "test_builder1",
                         "test_builder2",
                         "test_builder3" ])
-        ])
 
         # .. and later base the schedulers to trigger off this property:
 
@@ -1110,6 +1162,10 @@ Example::
 
 CodebaseParameter
 #####################
+
+::
+
+    CodebaseParameter(codebase="myrepo")
 
 This is a parameter group to specify a sourcestamp for a given codebase.
 
@@ -1136,6 +1192,8 @@ This is a parameter group to specify a sourcestamp for a given codebase.
 
     A :ref:`parameter <ForceScheduler-Parameters>` specifying the project for
     the build.  The default value is a string parameter.
+
+.. bb:sched:: InheritBuildParameter
 
 InheritBuildParameter
 #####################
@@ -1170,15 +1228,44 @@ Example::
                 builds.append(builder+"/"+str(b.getNumber()))
         return builds
 
-        # ...
+    # ...
 
-            properties=[
-                InheritBuildParameter(
-                    name="inherit",
-                    label="promote a build for merge",
-                    compatible_builds=get_compatible_builds,
-                    required = True),
-                    ])
+    sched = Scheduler(...,
+        properties=[
+            InheritBuildParameter(
+                name="inherit",
+                label="promote a build for merge",
+                compatible_builds=get_compatible_builds,
+                required = True),
+                ])
+
+.. bb:sched:: BuildslaveChoiceParameter
+
+BuildslaveChoiceParameter
+#########################
+
+This parameter allows a scheduler to require that a build is assigned to the
+chosen buildslave. The choice is assigned to the `slavename` property for the build.
+The :py:class:`~buildbot.builder.enforceChosenSlave` functor must be assigned to
+the ``canStartBuild`` parameter for the ``Builder``.
+
+Example::
+
+    from buildbot.process.builder import enforceChosenSlave
+
+    # schedulers:
+    ForceScheduler(
+        # ...
+        properties=[
+            BuildslaveChoiceParameter(),
+        ]
+    )
+
+    # builders:
+    BuilderConfig(
+        # ...
+        canStartBuild=enforceChosenSlave,
+    )
 
 AnyPropertyParameter
 ####################

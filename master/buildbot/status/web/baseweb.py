@@ -14,28 +14,26 @@
 # Copyright Buildbot Team Members
 
 
-import os, weakref
+import os
+import weakref
 
-from zope.interface import implements
-from twisted.python import log
-from twisted.application import strports, service
-from twisted.web import server, distrib, static
-from twisted.spread import pb
-from twisted.web.util import Redirect
 from buildbot import config
 from buildbot.interfaces import IStatusReceiver
-from buildbot.status.web.base import StaticFile, createJinjaEnv
-from buildbot.status.web.feeds import Rss20StatusResource, \
-     Atom10StatusResource
 from buildbot.status.web.forms import FormsKatanaResource
-from buildbot.status.web.waterfall import WaterfallStatusResource
+from buildbot.status.web.base import StaticFile
+from buildbot.status.web.base import createJinjaEnv
+from buildbot.status.web.builder import BuildersResource
+from buildbot.status.web.change_hook import ChangeHookResource
 from buildbot.status.web.console import ConsoleStatusResource
-from buildbot.status.web.olpb import OneLinePerBuild
+from buildbot.status.web.feeds import Atom10StatusResource
+from buildbot.status.web.feeds import Rss20StatusResource
 from buildbot.status.web.grid import GridStatusResource
 from buildbot.status.web.grid import TransposedGridStatusResource
 from buildbot.status.web.changes import ChangesResource
 from buildbot.status.web.buildqueue import BuildQueueResource
 from buildbot.status.web.buildstatus import BuildStatusStatusResource
+from buildbot.status.web.olpb import OneLinePerBuild
+from buildbot.status.web.pngstatus import PngStatusResource
 from buildbot.status.web.slaves import BuildSlavesResource
 from buildbot.status.web.loginkatana import LoginKatanaResource, LogoutKatanaResource
 from buildbot.status.web.status_json import JsonStatusResource
@@ -45,11 +43,27 @@ from buildbot.status.web.authz import Authz
 from buildbot.status.web.auth import AuthFailResource,AuthzFailResource, LoginResource, LogoutResource
 from buildbot.status.web.root import RootPage
 from buildbot.status.web.users import UsersResource
-from buildbot.status.web.change_hook import ChangeHookResource
+from buildbot.status.web.waterfall import WaterfallStatusResource
+from twisted.application import service
+from twisted.application import strports
+from twisted.cred import strcred
+from twisted.cred.checkers import ICredentialsChecker
+from twisted.cred.credentials import IUsernamePassword
+from twisted.cred.portal import IRealm
+from twisted.cred.portal import Portal
+from twisted.internet import defer
+from twisted.python import log
+from twisted.spread import pb
+from twisted.web import distrib
+from twisted.web import guard
+from twisted.web import resource
+from twisted.web import server
+from twisted.web import static
+from twisted.web.util import Redirect
+from zope.interface import implements
 
 # this class contains the WebStatus class.  Basic utilities are in base.py,
 # and specific pages are each in their own module.
-
 
 
 class WebStatus(service.MultiService):
@@ -89,6 +103,7 @@ class WebStatus(service.MultiService):
      /builders/BUILDERNAME/builds/NUM/steps/STEPNAME/logs/LOGNAME: a StatusLog
      /builders/_all/{force,stop}: force a build/stop building on all builders.
      /buildstatus?builder=...&number=...: an embedded iframe for the console
+     /png?buildername=...&number=...&size=... a png resource with build info
      /changes : summarize all ChangeSources
      /changes/CHANGENUM: a page describing a single Change
      /buildslaves : list all BuildSlaves
@@ -153,7 +168,8 @@ class WebStatus(service.MultiService):
                  order_console_by_time=False, changecommentlink=None,
                  revlink=None, projects=None, repositories=None,
                  authz=None, logRotateLength=None, maxRotatedFiles=None,
-                 change_hook_dialects = {}, provide_feeds=None, jinja_loaders=None):
+                 change_hook_dialects={}, provide_feeds=None, jinja_loaders=None,
+                 change_hook_auth=None):
         """Run a web server that provides Buildbot status.
 
         @type  http_port: int or L{twisted.application.strports} string
@@ -246,26 +262,26 @@ class WebStatus(service.MultiService):
 
         @type logRotateLength: None or int
         @param logRotateLength: file size at which the http.log is rotated/reset.
-            If not set, the value set in the buildbot.tac will be used, 
+            If not set, the value set in the buildbot.tac will be used,
              falling back to the BuildMaster's default value (1 Mb).
-        
+
         @type maxRotatedFiles: None or int
         @param maxRotatedFiles: number of old http.log files to keep during log rotation.
-            If not set, the value set in the buildbot.tac will be used, 
-             falling back to the BuildMaster's default value (10 files).       
-        
+            If not set, the value set in the buildbot.tac will be used,
+             falling back to the BuildMaster's default value (10 files).
+
         @type  change_hook_dialects: None or dict
-        @param change_hook_dialects: If empty, disables change_hook support, otherwise      
+        @param change_hook_dialects: If empty, disables change_hook support, otherwise
                                      whitelists valid dialects. In the format of
                                      {"dialect1": "Option1", "dialect2", None}
                                      Where the values are options that will be passed
                                      to the dialect
-                                     
+
                                      To enable the DEFAULT handler, use a key of DEFAULT
-                                     
-                                     
-        
-    
+
+
+
+
         @type  provide_feeds: None or list
         @param provide_feeds: If empty, provides atom, json, and rss feeds.
                               Otherwise, a dictionary of strings of
@@ -278,13 +294,13 @@ class WebStatus(service.MultiService):
         """
 
         service.MultiService.__init__(self)
-        if type(http_port) is int:
+        if isinstance(http_port, int):
             http_port = "tcp:%d" % http_port
         self.http_port = http_port
         if distrib_port is not None:
-            if type(distrib_port) is int:
+            if isinstance(distrib_port, int):
                 distrib_port = "tcp:%d" % distrib_port
-            if distrib_port[0] in "/~.": # pathnames
+            if distrib_port[0] in "/~.":  # pathnames
                 distrib_port = "unix:%s" % distrib_port
         self.distrib_port = distrib_port
         self.num_events = num_events
@@ -314,18 +330,44 @@ class WebStatus(service.MultiService):
                 if auth:
                     log.msg("Warning: Ignoring authentication. Search for 'authorization'"
                             " in the manual")
-                authz = Authz() # no authorization for anything
+                authz = Authz()  # no authorization for anything
 
         self.authz = authz
+
+        # check for correctness of HTTP auth parameters
+        if change_hook_auth is not None:
+            self.change_hook_auth = []
+            for checker in change_hook_auth:
+                if isinstance(checker, basestring):
+                    try:
+                        checker = strcred.makeChecker(checker)
+                    except Exception, error:
+                        config.error("Invalid change_hook checker description: %s" % (error,))
+                        continue
+                elif not ICredentialsChecker.providedBy(checker):
+                    config.error("change_hook checker doesn't provide ICredentialChecker: %r" % (checker,))
+                    continue
+
+                if IUsernamePassword not in checker.credentialInterfaces:
+                    config.error("change_hook checker doesn't support IUsernamePassword: %r" % (checker,))
+                    continue
+
+                self.change_hook_auth.append(checker)
+        else:
+            self.change_hook_auth = None
 
         self.orderConsoleByTime = order_console_by_time
 
         # If we were given a site object, go ahead and use it. (if not, we add one later)
         self.site = site
 
+        # keep track of our child services
+        self.http_svc = None
+        self.distrib_svc = None
+
         # store the log settings until we create the site object
         self.logRotateLength = logRotateLength
-        self.maxRotatedFiles = maxRotatedFiles        
+        self.maxRotatedFiles = maxRotatedFiles
 
         # create the web site page structure
         self.childrenToBeAdded = {}
@@ -340,12 +382,16 @@ class WebStatus(service.MultiService):
         # keep track of cached connections so we can break them when we shut
         # down. See ticket #102 for more details.
         self.channels = weakref.WeakKeyDictionary()
-        
+
         # do we want to allow change_hook
         self.change_hook_dialects = {}
         if change_hook_dialects:
             self.change_hook_dialects = change_hook_dialects
-            self.putChild("change_hook", ChangeHookResource(dialects = self.change_hook_dialects))
+            resource_obj = ChangeHookResource(dialects=self.change_hook_dialects)
+            if self.change_hook_auth is not None:
+                resource_obj = self.setupProtectedResource(
+                    resource_obj, self.change_hook_auth)
+            self.putChild("change_hook", resource_obj)
 
         # Set default feeds
         if provide_feeds is None:
@@ -355,15 +401,35 @@ class WebStatus(service.MultiService):
 
         self.jinja_loaders = jinja_loaders
 
+    def setupProtectedResource(self, resource_obj, checkers):
+        class SimpleRealm(object):
+
+            """
+            A realm which gives out L{ChangeHookResource} instances for authenticated
+            users.
+            """
+            implements(IRealm)
+
+            def requestAvatar(self, avatarId, mind, *interfaces):
+                if resource.IResource in interfaces:
+                    return (resource.IResource, resource_obj, lambda: None)
+                raise NotImplementedError()
+
+        portal = Portal(SimpleRealm(), checkers)
+        credentialFactory = guard.BasicCredentialFactory('Protected area')
+        wrapper = guard.HTTPAuthSessionWrapper(portal, [credentialFactory])
+        return wrapper
+
     def setupUsualPages(self, numbuilds, num_events, num_events_max):
         #self.putChild("", IndexOrWaterfallRedirection())
         self.putChild("waterfall", WaterfallStatusResource(num_events=num_events,
-                                        num_events_max=num_events_max))
+                                                           num_events_max=num_events_max))
         self.putChild("grid", GridStatusResource())
         self.putChild("console", ConsoleStatusResource(
-                orderByTime=self.orderConsoleByTime))
+            orderByTime=self.orderConsoleByTime))
         self.putChild("tgrid", TransposedGridStatusResource())
         self.putChild("buildqueue", BuildQueueResource()) # has buildqueue
+        self.putChild("builders", BuildersResource(numbuilds=numbuilds))  # has builds/steps/logs
         self.putChild("one_box_per_builder", Redirect("builders"))
         self.putChild("changes", ChangesResource())
         self.putChild("buildslaves", BuildSlavesResource())
@@ -401,12 +467,12 @@ class WebStatus(service.MultiService):
         if self.authz.auth:
             self.authz.auth.master = self.master
 
-        def either(a,b): # a if a else b for py2.4
+        def either(a, b):  # a if a else b for py2.4
             if a:
                 return a
             else:
                 return b
-        
+
         rotateLength = either(self.logRotateLength, self.master.log_rotation.rotateLength)
         maxRotatedFiles = either(self.maxRotatedFiles, self.master.log_rotation.maxRotatedFiles)
 
@@ -416,17 +482,19 @@ class WebStatus(service.MultiService):
         else:
             revlink = self.master.config.revlink
         self.templates = createJinjaEnv(revlink, self.changecommentlink,
-                                        self.repositories, self.projects, self.jinja_loaders)
+                                        self.repositories, self.projects,
+                                        self.jinja_loaders, self.master.basedir)
 
         if not self.site:
-            
+
             class RotateLogSite(server.Site):
+
                 def _openLogFile(self, path):
                     try:
                         from twisted.python.logfile import LogFile
                         log.msg("Setting up http.log rotating %s files of %s bytes each" %
-                                (maxRotatedFiles, rotateLength))            
-                        if hasattr(LogFile, "fromFullPath"): # not present in Twisted-2.5.0
+                                (maxRotatedFiles, rotateLength))
+                        if hasattr(LogFile, "fromFullPath"):  # not present in Twisted-2.5.0
                             return LogFile.fromFullPath(path, rotateLength=rotateLength, maxRotatedFiles=maxRotatedFiles)
                         else:
                             log.msg("WebStatus: rotated http logs are not supported on this version of Twisted")
@@ -447,11 +515,11 @@ class WebStatus(service.MultiService):
         self.site.buildbot_service = self
 
         if self.http_port is not None:
-            s = strports.service(self.http_port, self.site)
+            self.http_svc = s = strports.service(self.http_port, self.site)
             s.setServiceParent(self)
         if self.distrib_port is not None:
             f = pb.PBServerFactory(distrib.ResourcePublisher(self.site))
-            s = strports.service(self.distrib_port, f)
+            self.distrib_svc = s = strports.service(self.distrib_port, f)
             s.setServiceParent(self)
 
         self.setupSite()
@@ -489,6 +557,8 @@ class WebStatus(service.MultiService):
         if "json" in self.provide_feeds:
             root.putChild("json", JsonStatusResource(status))
 
+        root.putChild("png", PngStatusResource(status))
+
         self.site.resource = root
 
     def putChild(self, name, child_resource):
@@ -496,8 +566,9 @@ class WebStatus(service.MultiService):
         self.childrenToBeAdded[name] = child_resource
 
     def registerChannel(self, channel):
-        self.channels[channel] = 1 # weakrefs
+        self.channels[channel] = 1  # weakrefs
 
+    @defer.inlineCallbacks
     def stopService(self):
         for channel in self.channels:
             try:
@@ -506,7 +577,16 @@ class WebStatus(service.MultiService):
                 log.msg("WebStatus.stopService: error while disconnecting"
                         " leftover clients")
                 log.err()
-        return service.MultiService.stopService(self)
+        yield service.MultiService.stopService(self)
+
+        # having shut them down, now remove our child services so they don't
+        # start up again if we're re-started
+        if self.http_svc:
+            yield self.http_svc.disownServiceParent()
+            self.http_svc = None
+        if self.distrib_svc:
+            yield self.distrib_svc.disownServiceParent()
+            self.distrib_svc = None
 
     def getStatus(self):
         return self.master.getStatus()
@@ -527,10 +607,10 @@ class WebStatus(service.MultiService):
     # This is in preparation for removal of the IControl hierarchy
     # entirely.
 
-    def checkConfig(self, otherStatusReceivers, errors):
-        duplicate_webstatus=0
+    def checkConfig(self, otherStatusReceivers):
+        duplicate_webstatus = 0
         for osr in otherStatusReceivers:
-            if isinstance(osr,WebStatus):
+            if isinstance(osr, WebStatus):
                 if osr is self:
                     continue
                 # compare against myself and complain if the settings conflict
@@ -541,9 +621,9 @@ class WebStatus(service.MultiService):
                         duplicate_webstatus += 1
 
         if duplicate_webstatus:
-            errors.addError(
+            config.error(
                 "%d Webstatus objects have same port: %s"
-                    % (duplicate_webstatus, self.http_port),
+                % (duplicate_webstatus, self.http_port),
             )
 
 # resources can get access to the IStatus by calling

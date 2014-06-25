@@ -14,16 +14,19 @@
 # Copyright Buildbot Team Members
 
 import os
-from twisted.trial import unittest
-from buildbot.status import builder, master
+
+from buildbot.status import builder
+from buildbot.status import master
 from buildbot.test.fake import fakemaster
+from twisted.trial import unittest
+
 
 class TestBuildStepStatus(unittest.TestCase):
 
     # that buildstep.BuildStepStatus is never instantiated here should tell you
     # that these classes are not well isolated!
 
-    def setupBuilder(self, buildername, category=None):
+    def setupBuilder(self, buildername, category=None, description=None):
         self.master = fakemaster.make_master()
         self.master.basedir = '/basedir'
 
@@ -65,4 +68,4 @@ class TestBuildStepStatus(unittest.TestCase):
             bss1.asDict()['logs'],
             [['log_1', ('http://localhost:8080/projects/Project/builders/builder_1/'
                         'builds/0/steps/step_1/logs/log_1')]]
-            )
+        )

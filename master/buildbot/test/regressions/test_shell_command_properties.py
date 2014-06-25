@@ -13,13 +13,18 @@
 #
 # Copyright Buildbot Team Members
 
+import mock
+
 from twisted.trial import unittest
 
-from buildbot.steps.shell import ShellCommand, SetProperty
-from buildbot.process.properties import WithProperties, Properties
-from buildbot.process.factory import BuildFactory
-from buildbot.sourcestamp import SourceStamp
 from buildbot import config
+from buildbot.process.factory import BuildFactory
+from buildbot.process.properties import Properties
+from buildbot.process.properties import WithProperties
+from buildbot.sourcestamp import SourceStamp
+from buildbot.steps.shell import SetPropertyFromCommand
+from buildbot.steps.shell import ShellCommand
+
 
 class FakeSlaveBuilder:
     slave = None
@@ -31,6 +36,7 @@ class FakeBuilder:
     builder_status = FakeBuilderStatus()
 
 class FakeBuildStatus:
+
     def __init__(self):
         self.names = []
 
@@ -56,6 +62,7 @@ class FakeBuildStatus:
 
 class FakeStepStatus:
     txt = None
+
     def setText(self, txt):
         self.txt = txt
 
@@ -64,6 +71,7 @@ class FakeStepStatus:
 
 
 class FakeBuildRequest:
+
     def __init__(self, reason, sources, buildername):
         self.reason = reason
         self.sources = sources
@@ -79,16 +87,18 @@ class FakeBuildRequest:
 
 
 class TestShellCommandProperties(unittest.TestCase):
+
     def testCommand(self):
         f = BuildFactory()
-        f.addStep(SetProperty(command=["echo", "value"], property="propname"))
+        f.addStep(SetPropertyFromCommand(command=["echo", "value"], property="propname"))
         f.addStep(ShellCommand(command=["echo", WithProperties("%(propname)s")]))
 
         ss = SourceStamp()
 
-        req = FakeBuildRequest("Testing", {ss.repository:ss}, None)
+        req = FakeBuildRequest("Testing", {ss.repository: ss}, None)
 
         b = f.newBuild([req])
+        b.master = mock.Mock(name='master')
         b.build_status = FakeBuildStatus()
         b.slavebuilder = FakeSlaveBuilder()
         b.builder = FakeBuilder()
@@ -98,15 +108,17 @@ class TestShellCommandProperties(unittest.TestCase):
 
 
 class TestSetProperty(unittest.TestCase):
+
     def testGoodStep(self):
         f = BuildFactory()
-        f.addStep(SetProperty(command=["echo", "value"], property="propname"))
+        f.addStep(SetPropertyFromCommand(command=["echo", "value"], property="propname"))
 
         ss = SourceStamp()
 
-        req = FakeBuildRequest("Testing", {ss.repository:ss}, None)
+        req = FakeBuildRequest("Testing", {ss.repository: ss}, None)
 
         b = f.newBuild([req])
+        b.master = mock.Mock(name='master')
         b.build_status = FakeBuildStatus()
         b.slavebuilder = FakeSlaveBuilder()
         b.builder = FakeBuilder()
@@ -116,8 +128,8 @@ class TestSetProperty(unittest.TestCase):
 
     def testErrorBothSet(self):
         self.assertRaises(config.ConfigErrors,
-                SetProperty, command=["echo", "value"], property="propname", extract_fn=lambda x:{"propname": "hello"})
+                          SetPropertyFromCommand, command=["echo", "value"], property="propname", extract_fn=lambda x: {"propname": "hello"})
 
     def testErrorNoneSet(self):
         self.assertRaises(config.ConfigErrors,
-                SetProperty, command=["echo", "value"])
+                          SetPropertyFromCommand, command=["echo", "value"])

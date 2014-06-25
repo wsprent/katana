@@ -13,15 +13,11 @@
 #
 # Copyright Buildbot Team Members
 
-import os
 import mock
+import os
+
 from buildbot.test.fake import fakedb
 
-
-class FakeStatus(object):
-
-    def getChangeSources(self):
-        return {}
 
 class FakeMaster(object):
 
@@ -44,6 +40,7 @@ class FakeMaster(object):
 
     def _makeSubscription(self, attr_to_clear):
         sub = mock.Mock()
+
         def unsub():
             setattr(self, attr_to_clear, None)
         sub.unsubscribe = unsub
@@ -85,6 +82,7 @@ class FakeMaster(object):
 
 
 class SchedulerMixin(object):
+
     """
     This class fakes out enough of a master and the various relevant database
     connectors to test schedulers.  All of the database methods have identical
@@ -123,7 +121,7 @@ class SchedulerMixin(object):
 
         db.insertTestData([
             fakedb.Object(id=objectid, name=scheduler.name,
-                class_name='SomeScheduler'),
+                          class_name='SomeScheduler'),
         ])
 
         self.sched = scheduler
@@ -133,17 +131,17 @@ class SchedulerMixin(object):
         who = ''
         files = []
         comments = ''
-        isdir=0
-        links=None
-        revision=None
-        when=None
-        branch=None
-        category=None
-        revlink=''
-        properties={}
-        repository=''
-        project=''
-        codebase=''
+        isdir = 0
+        links = None
+        revision = None
+        when = None
+        branch = None
+        category = None
+        revlink = ''
+        properties = {}
+        repository = ''
+        project = ''
+        codebase = ''
 
     def makeFakeChange(self, **kwargs):
         """Utility method to make a fake Change object with the given

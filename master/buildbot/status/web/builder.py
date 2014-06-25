@@ -13,28 +13,72 @@
 #
 # Copyright Buildbot Team Members
 import json
-from buildbot.status.web.status_json import SingleProjectJsonResource, SingleProjectBuilderJsonResource, SinglePendingBuildsJsonResource, PastBuildsJsonResource, SlavesJsonResource, FilterOut, \
+from buildbot.status.web.status_json import SingleProjectJsonResource, \
+    SingleProjectBuilderJsonResource, SinglePendingBuildsJsonResource, \
+    PastBuildsJsonResource, SlavesJsonResource, FilterOut, \
     BuilderSlavesJsonResources
 
-from twisted.web import html
-import urllib, time
-from twisted.python import log
-from twisted.internet import defer
+import collections
+import time
+import urllib
+
 from buildbot import interfaces
 from buildbot.status.web.base import HtmlResource, BuildLineMixin, \
-    path_to_build, path_to_buildqueue, path_to_codebases, path_to_slave, path_to_builder, path_to_builders, path_to_change, \
-    path_to_root, ICurrentBox, build_get_class, getCodebasesArg, \
-    map_branches, path_to_authzfail, ActionResource, \
-    getRequestCharset, path_to_json_builders, path_to_json_pending, path_to_json_project_builder, path_to_json_past_builds, path_to_json_slaves, \
+    path_to_build, path_to_buildqueue, path_to_codebases, path_to_slave, \
+    path_to_builder, path_to_builders, path_to_change, path_to_root, ICurrentBox, \
+    build_get_class, getCodebasesArg, map_branches, path_to_authzfail, ActionResource, \
+    getRequestCharset, path_to_json_builders, path_to_json_pending, \
+    path_to_json_project_builder, path_to_json_past_builds, path_to_json_slaves, \
     path_to_json_builder_slaves
-from buildbot.schedulers.forcesched import ForceScheduler
-from buildbot.schedulers.forcesched import InheritBuildParameter, NestedParameter
-from buildbot.schedulers.forcesched import ValidationError
-from buildbot.status.web.build import BuildsResource, StatusResourceBuild
 from buildbot import util
-import collections
+from buildbot.schedulers.forcesched import ForceScheduler
+from buildbot.schedulers.forcesched import ValidationError
+from buildbot.status.web.build import BuildsResource
+from buildbot.status.web.build import StatusResourceBuild
+from twisted.internet import defer
+from twisted.python import log
+from twisted.web import html
 
-class ForceAllBuildsActionResource(ActionResource):
+
+class ForceAction(ActionResource):
+
+    @defer.inlineCallbacks
+    def force(self, req, builderNames):
+        master = self.getBuildmaster(req)
+        owner = self.getAuthz(req).getUsernameFull(req)
+        schedulername = req.args.get("forcescheduler", ["<unknown>"])[0]
+        if schedulername == "<unknown>":
+            defer.returnValue((path_to_builder(req, self.builder_status),
+                               "forcescheduler arg not found"))
+            return
+
+        args = {}
+        # decode all of the args
+        encoding = getRequestCharset(req)
+        for name, argl in req.args.iteritems():
+            if name == "checkbox":
+                # damn html's ungeneric checkbox implementation...
+                for cb in argl:
+                    args[cb.decode(encoding)] = True
+            else:
+                args[name] = [arg.decode(encoding) for arg in argl]
+
+        for sch in master.allSchedulers():
+            if schedulername == sch.name:
+                try:
+                    yield sch.force(owner, builderNames, **args)
+                    msg = ""
+                except ValidationError, e:
+                    msg = html.escape(e.message.encode('ascii', 'ignore'))
+                break
+        else:
+            msg = 'no scheduler found'
+
+        # send the user back to the builder page
+        defer.returnValue(msg)
+
+
+class ForceAllBuildsActionResource(ForceAction):
 
     def __init__(self, status, selectedOrAll):
         self.status = status
@@ -50,19 +94,16 @@ class ForceAllBuildsActionResource(ActionResource):
             defer.returnValue(path_to_authzfail(req))
             return
 
-        builders = None
         if self.selectedOrAll == 'all':
-            builders = self.status.getBuilderNames()
+            builderNames = None
         elif self.selectedOrAll == 'selected':
-            builders = [b for b in req.args.get("selected", []) if b]
+            builderNames = [b for b in req.args.get("selected", []) if b]
 
-        for bname in builders:
-            builder_status = self.status.getBuilder(bname)
-            ar = ForceBuildActionResource(builder_status)
-            d = ar.performAction(req)
-            d.addErrback(log.err, "(ignored) while trying to force build")
+        msg = yield self.force(req, builderNames)
+
         # back to the welcome page
-        defer.returnValue(path_to_root(req))
+        defer.returnValue((path_to_root(req) + "builders", msg))
+
 
 class StopAllBuildsActionResource(ActionResource):
 
@@ -100,6 +141,43 @@ class StopAllBuildsActionResource(ActionResource):
         # go back to the welcome page
         defer.returnValue(path_to_root(req))
 
+
+class CancelAllPendingBuildsActionResource(ActionResource):
+
+    def __init__(self, status, selectedOrAll):
+        self.status = status
+        self.selectedOrAll = selectedOrAll
+        self.action = 'cancelAllPendingBuilds'
+
+    @defer.inlineCallbacks
+    def performAction(self, req):
+        authz = self.getAuthz(req)
+        res = yield authz.actionAllowed('cancelAllPendingBuilds', req)
+        if not res:
+            defer.returnValue(path_to_authzfail(req))
+            return
+
+        builders = None
+        if self.selectedOrAll == 'all':
+            builders = self.status.getBuilderNames()
+        elif self.selectedOrAll == 'selected':
+            builders = [b for b in req.args.get("selected", []) if b]
+
+        c = interfaces.IControl(self.getBuildmaster(req))
+        for bname in builders:
+            authz = self.getAuthz(req)
+            builder_control = c.getBuilder(bname)
+
+            brcontrols = yield builder_control.getPendingBuildRequestControls()
+
+            for build_req in brcontrols:
+                log.msg("Cancelling %s" % build_req)
+                build_req.cancel()
+
+        # go back to the welcome page
+        defer.returnValue(path_to_root(req))
+
+
 class PingBuilderActionResource(ActionResource):
 
     def __init__(self, builder_status):
@@ -110,7 +188,7 @@ class PingBuilderActionResource(ActionResource):
     def performAction(self, req):
         log.msg("web ping of builder '%s'" % self.builder_status.getName())
         res = yield self.getAuthz(req).actionAllowed('pingBuilder', req,
-                                                    self.builder_status)
+                                                     self.builder_status)
         if not res:
             log.msg("..but not authorized")
             defer.returnValue(path_to_authzfail(req))
@@ -122,7 +200,8 @@ class PingBuilderActionResource(ActionResource):
         # send the user back to the builder page
         defer.returnValue(path_to_builder(req, self.builder_status))
 
-class ForceBuildActionResource(ActionResource):
+
+class ForceBuildActionResource(ForceAction):
 
     def __init__(self, builder_status):
         self.builder_status = builder_status
@@ -132,21 +211,13 @@ class ForceBuildActionResource(ActionResource):
     def performAction(self, req):
         # check if this is allowed
         res = yield self.getAuthz(req).actionAllowed(self.action, req,
-                                             self.builder_status)
+                                                     self.builder_status)
         if not res:
             log.msg("..but not authorized")
             defer.returnValue(path_to_authzfail(req))
             return
 
-        master = self.getBuildmaster(req)
-        owner = self.getAuthz(req).getUsernameFull(req)
-        schedulername = req.args.get("forcescheduler", ["<unknown>"])[0]
-        if schedulername == "<unknown>":
-            defer.returnValue((path_to_builder(req, self.builder_status),
-                               "forcescheduler arg not found"))
-            return
-
-        args = req.args.copy()
+        builderName = self.builder_status.getName()
 
         # decode all of the args
         encoding = getRequestCharset(req)
@@ -181,29 +252,29 @@ class ForceBuildActionResource(ActionResource):
             s = self.getStatus(req)
             defer.returnValue((s.getBuildbotURL() + path_to_json_pending(req, builder_name)))
 
+
 def buildForceContextForField(req, default_props, sch, field, master, buildername):
-    pname = "%s.%s"%(sch.name, field.fullName)
-    
+    pname = "%s.%s" % (sch.name, field.fullName)
+
     default = field.default
-    if isinstance(field, InheritBuildParameter):
-        # yes, I know, its bad to overwrite the parameter attribute,
-        # but I dont have any other simple way of doing this atm.
-        field.choices = field.compatible_builds(master.status, buildername)
-        if field.choices:
-            default = field.choices[0]
-            
+
+    if "list" in field.type:
+        choices = field.getChoices(master, sch, buildername)
+        default_props[pname + ".choices"] = choices
+
     default = req.args.get(pname, [default])[0]
     if "bool" in field.type:
-        default_props[pname] = "checked" if default else ""
-    else:
+        default = "checked" if default else ""
+    elif isinstance(default, unicode):
         # filter out unicode chars, and html stuff
-        if isinstance(default, unicode):
-            default = html.escape(default.encode('utf-8','ignore'))
-        default_props[pname] = default
-        
-    if isinstance(field, NestedParameter):
+        default = html.escape(default.encode('utf-8', 'ignore'))
+
+    default_props[pname] = default
+
+    if "nested" in field.type:
         for subfield in field.fields:
             buildForceContextForField(req, default_props, sch, subfield, master, buildername)
+
 
 def buildForceContext(cxt, req, master, buildername=None):
     force_schedulers = {}
@@ -213,7 +284,7 @@ def buildForceContext(cxt, req, master, buildername=None):
             force_schedulers[sch.name] = sch
             for field in sch.all_fields:
                 buildForceContextForField(req, default_props, sch, field, master, buildername)
-                
+
     cxt['force_schedulers'] = force_schedulers
     cxt['default_props'] = default_props
 
@@ -243,6 +314,43 @@ def builder_info(build, req, codebases_arg={}):
     b['stop_url'] = path_to_build(req, build, False) + '/stop' + codebases_arg
 
     return b
+# /builders/$builder
+
+
+class StatusResourceBuilder(HtmlResource, BuildLineMixin):
+    addSlash = True
+
+    def __init__(self, builder_status, numbuilds=20):
+        HtmlResource.__init__(self)
+        self.builder_status = builder_status
+        self.numbuilds = numbuilds
+
+    b['num'] = build.getNumber()
+    b['link'] = path_to_build(req, build)
+
+    when = build.getETA()
+    if when is not None:
+        b['when'] = util.formatInterval(when)
+        b['when_time'] = time.strftime("%H:%M:%S",
+                                       time.localtime(time.time() + when))
+
+    step = build.getCurrentStep()
+    # TODO: is this necessarily the case?
+    if not step:
+        b['current_step'] = "[waiting for build slave]"
+    else:
+        if step.isWaitingForLocks():
+            b['current_step'] = "%s [waiting for build slave]" % step.getName()
+        else:
+            b['current_step'] = step.getName()
+
+    b['stop_url'] = path_to_build(req, build, False) + '/stop' + codebases_arg
+
+        when = build.getETA()
+        if when is not None:
+            b['when'] = util.formatInterval(when)
+            b['when_time'] = time.strftime("%H:%M:%S",
+                                           time.localtime(time.time() + when))
 
 # /builders/$builder
 class StatusResourceBuilder(HtmlResource, BuildLineMixin):
@@ -259,10 +367,24 @@ class StatusResourceBuilder(HtmlResource, BuildLineMixin):
     @defer.inlineCallbacks
     def content(self, req, cxt):
         b = self.builder_status
-        project = cxt['selectedproject'] = b.getProject()
-        cxt['name'] = b.getName()
-        cxt['friendly_name'] = b.getFriendlyName()
 
+        # Grab all the parameters which are prefixed with 'property.'.
+        # We'll use these to filter the builds and build requests we
+        # show below.
+        props = {}
+        prop_prefix = 'property.'
+        for arg, val in req.args.iteritems():
+            if arg.startswith(prop_prefix):
+                props[arg[len(prop_prefix):]] = val[0]
+
+        def prop_match(oprops):
+            for key, val in props.iteritems():
+                if key not in oprops or val != str(oprops[key]):
+                    return False
+            return True
+
+        cxt['name'] = b.getName()
+        cxt['description'] = b.getDescription()
         req.setHeader('Cache-Control', 'no-cache')
         slaves = b.getSlaves()
         connected_slaves = [s for s in slaves if s.isConnected()]
@@ -273,7 +395,48 @@ class StatusResourceBuilder(HtmlResource, BuildLineMixin):
         numbuilds = int(req.args.get('numbuilds', ['15'])[0])
         recent = cxt['recent'] = []
 
-        for build in b.generateFinishedBuilds(codebases=codebases, num_builds=int(numbuilds)):
+        cxt['current'] = [
+            self.builder(x, req) for x in b.getCurrentBuilds()
+            if prop_match(x.getProperties())]
+
+        cxt['pending'] = []
+        statuses = yield b.getPendingBuildRequestStatuses()
+        for pb in statuses:
+            changes = []
+
+            source = yield pb.getSourceStamp()
+            submitTime = yield pb.getSubmitTime()
+            bsid = yield pb.getBsid()
+
+            properties = yield \
+                pb.master.db.buildsets.getBuildsetProperties(bsid)
+            if not prop_match(properties):
+                continue
+
+            if source.changes:
+                for c in source.changes:
+                    changes.append({'url': path_to_change(req, c),
+                                    'who': c.who,
+                                    'revision': c.revision,
+                                    'repo': c.repository})
+
+            cxt['pending'].append({
+                'when': time.strftime("%b %d %H:%M:%S",
+                                      time.localtime(submitTime)),
+                'delay': util.formatInterval(util.now() - submitTime),
+                'id': pb.brid,
+                'changes': changes,
+                'num_changes': len(changes),
+                'properties': properties,
+            })
+
+        numbuilds = cxt['numbuilds'] = int(req.args.get('numbuilds', [self.numbuilds])[0])
+        maxsearch = int(req.args.get('maxsearch', [200])[0])
+        recent = cxt['recent'] = []
+        for build in b.generateFinishedBuilds(
+                num_builds=int(numbuilds),
+                max_search=maxsearch,
+                filter_fn=lambda b: prop_match(b.getProperties())):
             recent.append(self.get_line_values(req, build, False))
 
         sl = cxt['slaves'] = []
@@ -285,8 +448,9 @@ class StatusResourceBuilder(HtmlResource, BuildLineMixin):
             s['name'] = slave.getName()
             s['friendly_name'] = slave.getFriendlyName()
             c = s['connected'] = slave.isConnected()
+            s['paused'] = slave.isPaused()
+            s['admin'] = slave.getAdmin() or u''
             if c:
-                s['admin'] = unicode(slave.getAdmin() or '', 'utf-8')
                 connected_slaves += 1
         cxt['connected_slaves'] = connected_slaves
 
@@ -346,6 +510,7 @@ class StatusResourceBuilder(HtmlResource, BuildLineMixin):
 
         return HtmlResource.getChild(self, path, req)
 
+
 class CancelChangeResource(ActionResource):
 
     def __init__(self, builder_status):
@@ -375,7 +540,7 @@ class CancelChangeResource(ActionResource):
                 if cancel_all or (build_req.brid == request_id):
                     log.msg("Cancelling %s" % build_req)
                     res = yield authz.actionAllowed('cancelPendingBuild', req,
-                                                                build_req)
+                                                    build_req)
                     if res:
                         build_req.cancel()
                     else:
@@ -397,6 +562,7 @@ class CancelChangeResource(ActionResource):
             s = self.getStatus(req)
             defer.returnValue((s.getBuildbotURL() + path_to_json_builders(req, self.builder_status.getProject())))
 
+
 class StopChangeMixin(object):
 
     @defer.inlineCallbacks
@@ -416,7 +582,7 @@ class StopChangeMixin(object):
             build_controls = dict((x.brid, x) for x in brcontrols)
 
             build_req_statuses = yield \
-                    builder_status.getPendingBuildRequestStatuses()
+                builder_status.getPendingBuildRequestStatuses()
 
             for build_req in build_req_statuses:
                 ss = yield build_req.getSourceStamp()
@@ -494,6 +660,8 @@ class StatusResourceAllBuilders(HtmlResource, BuildLineMixin):
             return self.stopall(req)
         if path == "stopchangeall":
             return StopChangeAllResource(self.status)
+        if path == "cancelpendingall":
+            return CancelAllPendingBuildsActionResource(self.status, 'all')
 
         return HtmlResource.getChild(self, path, req)
 
@@ -504,6 +672,8 @@ class StatusResourceAllBuilders(HtmlResource, BuildLineMixin):
         return StopAllBuildsActionResource(self.status, 'all')
 
 # /builders/_selected
+
+
 class StatusResourceSelectedBuilders(HtmlResource, BuildLineMixin):
 
     def __init__(self, status):
@@ -515,6 +685,8 @@ class StatusResourceSelectedBuilders(HtmlResource, BuildLineMixin):
             return self.forceselected(req)
         if path == "stopselected":
             return self.stopselected(req)
+        if path == "cancelpendingselected":
+            return CancelAllPendingBuildsActionResource(self.status, 'selected')
 
         return HtmlResource.getChild(self, path, req)
 
@@ -536,13 +708,16 @@ def foundCodebasesInPendingBuild(pendingbuild, codebases):
 
 
 # /builders
+
+
 class BuildersResource(HtmlResource):
     pageTitle = "Katana - Builders"
     addSlash = True
 
-    def __init__(self, project):
+    def __init__(self, project, numbuilds=20):
         HtmlResource.__init__(self)
         self.project = project
+        self.numbuilds = numbuilds
 
     @defer.inlineCallbacks
     def content(self, req, cxt):
@@ -557,7 +732,6 @@ class BuildersResource(HtmlResource):
         cxt['instant_json']['builders'] = {"url": url,
                                            "data": json.dumps(project_dict)}
 
-
         template = req.site.buildbot_service.templates.get_template("builders.html")
         defer.returnValue(template.render(**cxt))
 
@@ -565,11 +739,10 @@ class BuildersResource(HtmlResource):
         s = self.getStatus(req)
         if path in s.getBuilderNames():
             builder_status = s.getBuilder(path)
-            return StatusResourceBuilder(s, builder_status)
+            return StatusResourceBuilder(builder_status, self.numbuilds)
         if path == "_all":
             return StatusResourceAllBuilders(self.getStatus(req))
         if path == "_selected":
             return StatusResourceSelectedBuilders(self.getStatus(req))
 
         return HtmlResource.getChild(self, path, req)
-

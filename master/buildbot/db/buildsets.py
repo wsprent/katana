@@ -18,13 +18,17 @@ Support for buildsets in the database
 """
 
 import sqlalchemy as sa
-from twisted.internet import reactor
-from buildbot.util import json
+
 from buildbot.db import base
-from buildbot.util import epoch2datetime, datetime2epoch
+from buildbot.util import datetime2epoch
+from buildbot.util import epoch2datetime
+from buildbot.util import json
+from twisted.internet import reactor
+
 
 class BsDict(dict):
     pass
+
 
 class BuildsetsConnectorComponent(base.DBConnectorComponent):
     # Documentation is in developer/database.rst
@@ -38,7 +42,7 @@ class BuildsetsConnectorComponent(base.DBConnectorComponent):
             reason_val = self.truncateColumn(buildsets_tbl.c.reason, reason)
             self.check_length(buildsets_tbl.c.reason, reason_val)
             self.check_length(buildsets_tbl.c.external_idstring,
-                    external_idstring)
+                              external_idstring)
 
             transaction = conn.begin()
 
@@ -55,13 +59,11 @@ class BuildsetsConnectorComponent(base.DBConnectorComponent):
 
                 inserts = [
                     dict(buildsetid=bsid, property_name=k,
-                         property_value=json.dumps([v,s]))
-                    for k,(v,s) in properties.iteritems() ]
+                         property_value=json.dumps([v, s]))
+                    for k, (v, s) in properties.iteritems()]
                 for i in inserts:
                     self.check_length(bs_props_tbl.c.property_name,
                                       i['property_name'])
-                    self.check_length(bs_props_tbl.c.property_value,
-                                      i['property_value'])
 
                 conn.execute(bs_props_tbl.insert(), inserts)
 
@@ -86,10 +88,10 @@ class BuildsetsConnectorComponent(base.DBConnectorComponent):
                 self.check_length(br_tbl.c.buildername, buildername)
                 res = conn.execute(ins,
                     dict(buildsetid=bsid, buildername=buildername, priority=0,
-                        claimed_at=0, claimed_by_name=None,
-                        claimed_by_incarnation=None, complete=0, results=-1,
-                        submitted_at=submitted_at, complete_at=None,
-                        triggeredbybrid=triggeredbybrid, startbrid=startbrid))
+                         claimed_at=0, claimed_by_name=None,
+                         claimed_by_incarnation=None, complete=0, results=-1,
+                         submitted_at=submitted_at, complete_at=None,
+                         triggeredbybrid=triggeredbybrid, startbrid=startbrid))
 
                 brids[buildername] = res.inserted_primary_key[0]
 
@@ -99,7 +101,7 @@ class BuildsetsConnectorComponent(base.DBConnectorComponent):
         return self.db.pool.do(thd)
 
     def completeBuildset(self, bsid, results, complete_at=None,
-                                _reactor=reactor):
+                         _reactor=reactor):
         if complete_at is not None:
             complete_at = datetime2epoch(complete_at)
         else:
@@ -133,6 +135,16 @@ class BuildsetsConnectorComponent(base.DBConnectorComponent):
             else:
                 checkupdated()
 
+            q = tbl.update(whereclause=(
+                (tbl.c.id == bsid) &
+                ((tbl.c.complete == None) | (tbl.c.complete != 1))))
+            res = conn.execute(q,
+                               complete=1,
+                               results=results,
+                               complete_at=complete_at)
+
+            if res.rowcount != 1:
+                raise KeyError
         return self.db.pool.do(thd)
 
     def getBuildset(self, bsid):
@@ -157,7 +169,35 @@ class BuildsetsConnectorComponent(base.DBConnectorComponent):
                     q = q.where((bs_tbl.c.complete == 0) |
                                 (bs_tbl.c.complete == None))
             res = conn.execute(q)
-            return [ self._row2dict(row) for row in res.fetchall() ]
+            return [self._row2dict(row) for row in res.fetchall()]
+        return self.db.pool.do(thd)
+
+    def getRecentBuildsets(self, count, branch=None, repository=None,
+                           complete=None):
+        def thd(conn):
+            bs_tbl = self.db.model.buildsets
+            ss_tbl = self.db.model.sourcestamps
+            j = sa.join(self.db.model.buildsets,
+                        self.db.model.sourcestampsets)
+            j = j.join(self.db.model.sourcestamps)
+            q = sa.select(columns=[bs_tbl], from_obj=[j],
+                          distinct=True)
+            q = q.order_by(sa.desc(bs_tbl.c.submitted_at))
+            q = q.limit(count)
+
+            if complete is not None:
+                if complete:
+                    q = q.where(bs_tbl.c.complete != 0)
+                else:
+                    q = q.where((bs_tbl.c.complete == 0) |
+                                (bs_tbl.c.complete == None))
+            if branch:
+                q = q.where(ss_tbl.c.branch == branch)
+            if repository:
+                q = q.where(ss_tbl.c.repository == repository)
+            res = conn.execute(q)
+            return list(reversed([self._row2dict(row)
+                                  for row in res.fetchall()]))
         return self.db.pool.do(thd)
 
     def getBuildsetProperties(self, buildsetid):
@@ -176,14 +216,14 @@ class BuildsetsConnectorComponent(base.DBConnectorComponent):
         def thd(conn):
             bsp_tbl = self.db.model.buildset_properties
             q = sa.select(
-                [ bsp_tbl.c.property_name, bsp_tbl.c.property_value ],
+                [bsp_tbl.c.property_name, bsp_tbl.c.property_value],
                 whereclause=(bsp_tbl.c.buildsetid == buildsetid))
             l = []
             for row in conn.execute(q):
                 try:
                     properties = json.loads(row.property_value)
                     l.append((row.property_name,
-                           tuple(properties)))
+                              tuple(properties)))
                 except ValueError:
                     pass
             return dict(l)
@@ -194,8 +234,8 @@ class BuildsetsConnectorComponent(base.DBConnectorComponent):
             if epoch:
                 return epoch2datetime(epoch)
         return BsDict(external_idstring=row.external_idstring,
-                reason=row.reason, sourcestampsetid=row.sourcestampsetid,
-                submitted_at=mkdt(row.submitted_at),
-                complete=bool(row.complete),
-                complete_at=mkdt(row.complete_at), results=row.results,
-                bsid=row.id)
+                      reason=row.reason, sourcestampsetid=row.sourcestampsetid,
+                      submitted_at=mkdt(row.submitted_at),
+                      complete=bool(row.complete),
+                      complete_at=mkdt(row.complete_at), results=row.results,
+                      bsid=row.id)

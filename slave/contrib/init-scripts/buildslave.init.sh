@@ -18,7 +18,6 @@
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
 SLAVE_RUNNER=/usr/bin/buildslave
 
-. /lib/lsb/init-functions
 
 # Source buildslave configuration
 [[ -r /etc/default/buildslave ]] && . /etc/default/buildslave
@@ -31,6 +30,35 @@ SLAVE_RUNNER=/usr/bin/buildslave
 #SLAVE_BASEDIR[1]=""                   # basedir to slave (absolute path)
 #SLAVE_OPTIONS[1]=""                   # buildbot options
 #SLAVE_PREFIXCMD[1]=""                 # prefix command, i.e. nice, linux32, dchroot
+
+
+# Get some LSB-like functions
+if [ -r /lib/lsb/init-functions ]; then
+    . /lib/lsb/init-functions
+else
+    function log_success_msg() {
+        echo "$@"
+    }
+    function log_failure_msg() {
+        echo "$@"
+    }
+    function log_warning_msg() {
+        echo "$@"
+    }
+fi
+
+
+# Some systems don't have seq (e.g. Solaris)
+if type seq >/dev/null 2>&1; then
+    :
+else
+    function seq() {
+        for ((i=1; i<=$1; i+=1)); do
+            echo $i
+        done
+    }
+fi
+
 
 if [[ ! -x ${SLAVE_RUNNER} ]]; then
     log_failure_msg "does not exist or not an executable file: ${SLAVE_RUNNER}"
@@ -51,31 +79,31 @@ function is_disabled() {
 
 
 function slave_config_valid() {
-    # Function validates buildmaster instance startup variables based on array
+    # Function validates buildslave instance startup variables based on array
     # index
     local errors=0
     local index=$1
 
     if ! is_enabled "${SLAVE_ENABLED[$index]}" && ! is_disabled "${SLAVE_ENABLED[$index]}" ; then
-        log_warning_msg "buildmaster #${i}: invalid enabled status"
+        log_warning_msg "buildslave #${index}: invalid enabled status"
         errors=$(($errors+1))
     fi
 
     if [[ -z ${SLAVE_NAME[$index]} ]]; then
-        log_failure_msg "buildmaster #${i}: no name"
+        log_failure_msg "buildslave #${index}: no name"
         errors=$(($errors+1))
     fi
 
     if [[ -z ${SLAVE_USER[$index]} ]]; then
-        log_failure_msg "buildmaster #${i}: no run user specified"
+        log_failure_msg "buildslave #${index}: no run user specified"
         errors=$( ($errors+1) )
     elif ! getent passwd ${SLAVE_USER[$index]} >/dev/null; then
-        log_failure_msg "buildmaster #${i}: unknown user ${SLAVE_USER[$index]}"
+        log_failure_msg "buildslave #${index}: unknown user ${SLAVE_USER[$index]}"
         errors=$(($errors+1))
     fi
 
     if [[ ! -d "${SLAVE_BASEDIR[$index]}" ]]; then
-        log_failure_msg "buildmaster ${i}: basedir does not exist ${SLAVE_BASEDIR[$index]}"
+        log_failure_msg "buildslave ${index}: basedir does not exist ${SLAVE_BASEDIR[$index]}"
         errors=$(($errors+1))
     fi
 
@@ -115,10 +143,14 @@ function iscallable () { type $1 2>/dev/null | grep -q 'shell function'; }
 function slave_op () {
     op=$1 ; mi=$2
 
+    if [ `uname` = SunOS ]; then
+        suopt=""
+    else
+        suopt="-s /bin/sh"
+    fi
     ${SLAVE_PREFIXCMD[$mi]} \
-    su -s /bin/sh \
-    -c "$SLAVE_RUNNER $op --quiet ${SLAVE_OPTIONS[$mi]} ${SLAVE_BASEDIR[$mi]}" \
-    - ${SLAVE_USER[$mi]}
+    su $suopt - ${SLAVE_USER[$mi]} \
+    -c "$SLAVE_RUNNER $op --quiet ${SLAVE_OPTIONS[$mi]} ${SLAVE_BASEDIR[$mi]}"
     return $?
 }
 

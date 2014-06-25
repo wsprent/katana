@@ -14,15 +14,22 @@
 # Copyright Buildbot Team Members
 
 
-from twisted.python import log, reflect
-from twisted.python.failure import Failure
-from twisted.internet import defer, reactor
-from twisted.spread import pb
 from twisted.application import service
+from twisted.internet import defer
+from twisted.internet import reactor
+from twisted.python import log
+from twisted.python import reflect
+from twisted.python.failure import Failure
+from twisted.spread import pb
 
-from buildbot.process.builder import Builder
-from buildbot import interfaces, locks, config, util
+from buildbot import config
+from buildbot import interfaces
+from buildbot import locks
+from buildbot import util
 from buildbot.process import metrics
+from buildbot.process.builder import Builder
+from buildbot.process.buildrequestdistributor import BuildRequestDistributor
+
 
 class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
 
@@ -47,7 +54,7 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
         # If the slave is connected, self.slaves[slavename].slave will
         # contain a RemoteReference to their Bot instance. If it is not
         # connected, that attribute will hold None.
-        self.slaves = {} # maps slavename to BuildSlave
+        self.slaves = {}  # maps slavename to BuildSlave
         self.watchers = {}
 
         # self.locks holds the real Lock instances
@@ -130,8 +137,8 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
 
     @metrics.countMethod('BotMaster.getBuildersForSlave()')
     def getBuildersForSlave(self, slavename):
-        return [ b for b in self.builders.values()
-                 if slavename in b.config.slavenames ]
+        return [b for b in self.builders.values()
+                if slavename in b.config.slavenames]
 
     def getBuildernames(self):
         return self.builderNames
@@ -159,14 +166,13 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
 
         # call up
         yield config.ReconfigurableServiceMixin.reconfigService(self,
-                                                    new_config)
+                                                                new_config)
 
         # try to start a build for every builder; this is necessary at master
         # startup, and a good idea in any other case
         self.maybeStartBuildsForAllBuilders()
 
         timer.stop()
-
 
     @defer.inlineCallbacks
     def reconfigServiceSlaves(self, new_config):
@@ -175,12 +181,12 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
         timer.start()
 
         # arrange slaves by name
-        old_by_name = dict([ (s.slavename, s)
+        old_by_name = dict([(s.slavename, s)
                             for s in list(self)
-                            if interfaces.IBuildSlave.providedBy(s) ])
+                            if interfaces.IBuildSlave.providedBy(s)])
         old_set = set(old_by_name.iterkeys())
-        new_by_name = dict([ (s.slavename, s)
-                            for s in new_config.slaves ])
+        new_by_name = dict([(s.slavename, s)
+                            for s in new_config.slaves])
         new_set = set(new_by_name.iterkeys())
 
         # calculate new slaves, by name, and removed slaves
@@ -207,8 +213,8 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
                 slave.master = None
                 slave.botmaster = None
 
-                yield defer.maybeDeferred(lambda :
-                        slave.disownServiceParent())
+                yield defer.maybeDeferred(lambda:
+                                          slave.disownServiceParent())
 
             for n in added_names:
                 slave = new_by_name[n]
@@ -216,10 +222,9 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
                 self.slaves[n] = slave
 
         metrics.MetricCountEvent.log("num_slaves",
-                len(self.slaves), absolute=True)
+                                     len(self.slaves), absolute=True)
 
         timer.stop()
-
 
     @defer.inlineCallbacks
     def reconfigServiceBuilders(self, new_config):
@@ -228,12 +233,12 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
         timer.start()
 
         # arrange builders by name
-        old_by_name = dict([ (b.name, b)
+        old_by_name = dict([(b.name, b)
                             for b in list(self)
-                            if isinstance(b, Builder) ])
+                            if isinstance(b, Builder)])
         old_set = set(old_by_name.iterkeys())
-        new_by_name = dict([ (bc.name, bc)
-                            for bc in new_config.builders ])
+        new_by_name = dict([(bc.name, bc)
+                            for bc in new_config.builders])
         new_set = set(new_by_name.iterkeys())
 
         # calculate new builders, by name, and removed builders
@@ -250,8 +255,8 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
                 builder.master = None
                 builder.botmaster = None
 
-                yield defer.maybeDeferred(lambda :
-                        builder.disownServiceParent())
+                yield defer.maybeDeferred(lambda:
+                                          builder.disownServiceParent())
 
             for n in added_names:
                 builder = Builder(n)
@@ -264,10 +269,9 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
         self.builderNames = self.builders.keys()
 
         metrics.MetricCountEvent.log("num_builders",
-                len(self.builders), absolute=True)
+                                     len(self.builders), absolute=True)
 
         timer.stop()
-
 
     def stopService(self):
         if self.buildrequest_sub:
@@ -292,6 +296,14 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
         # be hashable and that they should compare properly.
         return self.locks[lockid]
 
+    def getLockFromLockAccess(self, access):
+        # Convert a lock-access object into an actual Lock instance.
+        if not isinstance(access, locks.LockAccess):
+            # Buildbot 0.7.7 compability: user did not specify access
+            access = access.defaultAccess()
+        lock = self.getLockByID(access.lockid)
+        return lock
+
     def maybeStartBuildsForBuilder(self, buildername):
         """
         Call this when something suggests that a particular builder may now
@@ -299,8 +311,7 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
 
         @param buildername: the name of the builder
         """
-        d = self.brd.maybeStartBuildsOn([buildername])
-        d.addErrback(log.err)
+        self.brd.maybeStartBuildsOn([buildername])
 
     def maybeStartBuildsForSlave(self, slave_name):
         """
@@ -310,199 +321,18 @@ class BotMaster(config.ReconfigurableServiceMixin, service.MultiService):
         @param slave_name: the name of the slave
         """
         builders = self.getBuildersForSlave(slave_name)
-        d = self.brd.maybeStartBuildsOn([ b.name for b in builders ])
-        d.addErrback(log.err)
+        self.brd.maybeStartBuildsOn([b.name for b in builders])
 
     def maybeStartBuildsForAllBuilders(self):
         """
-        Call this when something suggests that this would be a good time to start some
-        builds, but nothing more specific.
+        Call this when something suggests that this would be a good time to
+        start some builds, but nothing more specific.
         """
-        d = self.brd.maybeStartBuildsOn(self.builderNames)
-        d.addErrback(log.err)
-
-class BuildRequestDistributor(service.Service):
-    """
-    Special-purpose class to handle distributing build requests to builders by
-    calling their C{maybeStartBuild} method.
-
-    This takes account of the C{prioritizeBuilders} configuration, and is
-    highly re-entrant; that is, if a new build request arrives while builders
-    are still working on the previous build request, then this class will
-    correctly re-prioritize invocations of builders' C{maybeStartBuild}
-    methods.
-    """
-
-    def __init__(self, botmaster):
-        self.botmaster = botmaster
-        self.master = botmaster.master
-
-        # lock to ensure builders are only sorted once at any time
-        self.pending_builders_lock = defer.DeferredLock()
-
-        # sorted list of names of builders that need their maybeStartBuild
-        # method invoked.
-        self._pending_builders = []
-        self.activity_lock = defer.DeferredLock()
-        self.active = False
-
-    def stopService(self):
-        # let the parent stopService succeed between activity; then the loop
-        # will stop calling itself, since self.running is false
-        d = self.activity_lock.acquire()
-        d.addCallback(lambda _ : service.Service.stopService(self))
-        d.addBoth(lambda _ : self.activity_lock.release())
-        return d
-
-    @defer.inlineCallbacks
-    def maybeStartBuildsOn(self, new_builders):
-        """
-        Try to start any builds that can be started right now.  This function
-        returns immediately, and promises to trigger those builders
-        eventually.
-
-        @param new_builders: names of new builders that should be given the
-        opportunity to check for new requests.
-        """
-        new_builders = set(new_builders)
-        existing_pending = set(self._pending_builders)
-
-        # if we won't add any builders, there's nothing to do
-        if new_builders < existing_pending:
-            return
-
-        # reset the list of pending builders; this is async, so begin
-        # by grabbing a lock
-        yield self.pending_builders_lock.acquire()
-
-        try:
-            # re-fetch existing_pending, in case it has changed while acquiring
-            # the lock
-            existing_pending = set(self._pending_builders)
-
-            # then sort the new, expanded set of builders
-            self._pending_builders = \
-                yield self._sortBuilders(list(existing_pending | new_builders))
-
-            # start the activity loop, if we aren't already working on that.
-            if not self.active:
-                self._activityLoop()
-        except Exception:
-            log.err(Failure(),
-                    "while attempting to start builds on %s" % self.name)
-
-        # release the lock unconditionally
-        self.pending_builders_lock.release()
-
-    @defer.inlineCallbacks
-    def _defaultSorter(self, master, builders):
-        timer = metrics.Timer("BuildRequestDistributor._defaultSorter()")
-        timer.start()
-        # perform an asynchronous schwarzian transform, transforming None
-        # into sys.maxint so that it sorts to the end
-        def xform(bldr):
-            d = defer.maybeDeferred(lambda :
-                    bldr.getOldestRequestTime())
-            d.addCallback(lambda time :
-                (((time is None) and None or time),bldr))
-            return d
-        xformed = yield defer.gatherResults(
-                [ xform(bldr) for bldr in builders ])
-
-        # sort the transformed list synchronously, comparing None to the end of
-        # the list
-        def nonecmp(a,b):
-            if a[0] is None: return 1
-            if b[0] is None: return -1
-            return cmp(a,b)
-        xformed.sort(cmp=nonecmp)
-
-        # and reverse the transform
-        rv = [ xf[1] for xf in xformed ]
-        timer.stop()
-        defer.returnValue(rv)
-
-    @defer.inlineCallbacks
-    def _sortBuilders(self, buildernames):
-        timer = metrics.Timer("BuildRequestDistributor._sortBuilders()")
-        timer.start()
-        # note that this takes and returns a list of builder names
-
-        # convert builder names to builders
-        builders_dict = self.botmaster.builders
-        builders = [ builders_dict.get(n)
-                     for n in buildernames
-                     if n in builders_dict ]
-
-        # find a sorting function
-        sorter = self.master.config.prioritizeBuilders
-        if not sorter:
-            sorter = self._defaultSorter
-
-        # run it
-        try:
-            builders = yield defer.maybeDeferred(lambda :
-                    sorter(self.master, builders))
-        except Exception:
-            log.msg("Exception prioritizing builders; order unspecified")
-            log.err(Failure())
-
-        # and return the names
-        rv = [ b.name for b in builders ]
-        timer.stop()
-        defer.returnValue(rv)
-
-    @defer.inlineCallbacks
-    def _activityLoop(self):
-        self.active = True
-
-        timer = metrics.Timer('BuildRequestDistributor._activityLoop()')
-        timer.start()
-
-        while 1:
-            yield self.activity_lock.acquire()
-
-            # lock pending_builders, pop an element from it, and release
-            yield self.pending_builders_lock.acquire()
-
-            # bail out if we shouldn't keep looping
-            if not self.running or not self._pending_builders:
-                self.pending_builders_lock.release()
-                self.activity_lock.release()
-                break
-
-            bldr_name = self._pending_builders.pop(0)
-            self.pending_builders_lock.release()
-
-            try:
-                yield self._callABuilder(bldr_name)
-            except Exception:
-                log.err(Failure(),
-                        "from maybeStartBuild for builder '%s'" % (bldr_name,))
-
-            self.activity_lock.release()
-
-        timer.stop()
-
-        self.active = False
-        self._quiet()
-
-    def _callABuilder(self, bldr_name):
-        # get the actual builder object
-        bldr = self.botmaster.builders.get(bldr_name)
-        if not bldr:
-            return defer.succeed(None)
-
-        d = bldr.maybeStartBuild()
-        d.addErrback(log.err, 'in maybeStartBuild for %r' % (bldr,))
-        return d
-
-    def _quiet(self):
-        # shim for tests
-        pass # pragma: no cover
+        self.brd.maybeStartBuildsOn(self.builderNames)
 
 
 class DuplicateSlaveArbitrator(object):
+
     """Utility class to arbitrate the situation when a new slave connects with
     the name of an existing, connected slave
 
@@ -511,7 +341,7 @@ class DuplicateSlaveArbitrator(object):
     @ivar old_remote: L{RemoteReference} to the old slave
     @ivar new_remote: L{RemoteReference} to the new slave
     """
-    _reactor = reactor # for testing
+    _reactor = reactor  # for testing
 
     # There are several likely duplicate slave scenarios in practice:
     #
@@ -563,10 +393,11 @@ class DuplicateSlaveArbitrator(object):
         return d
 
     def ping_new_slave(self):
-        d = defer.maybeDeferred(lambda :
-            self.new_remote.callRemote("print", "master already has a "
-                        "connection named '%s' - checking its liveness"
-                        % self.buildslave.slavename))
+        d = defer.maybeDeferred(lambda:
+                                self.new_remote.callRemote("print", "master already has a "
+                                                           "connection named '%s' - checking its liveness"
+                                                           % self.buildslave.slavename))
+
         def done(_):
             # failure or success, doesn't matter - the ping is done.
             self.ping_new_slave_done = True
@@ -585,15 +416,15 @@ class DuplicateSlaveArbitrator(object):
             self.ping_old_slave_done = True
             self.maybe_done()
         self.ping_old_slave_timeout = self._reactor.callLater(
-                                    self.PING_TIMEOUT, timeout)
+            self.PING_TIMEOUT, timeout)
         self.ping_old_slave_timed_out = False
 
         # call this in maybeDeferred because callRemote tends to raise
         # exceptions instead of returning Failures
-        d = defer.maybeDeferred(lambda :
-            self.old_remote.callRemote("print",
-                "master got a duplicate connection from %s; keeping this one"
-                                        % new_peer))
+        d = defer.maybeDeferred(lambda:
+                                self.old_remote.callRemote("print",
+                                                           "master got a duplicate connection from %s; keeping this one"
+                                                           % new_peer))
 
         def clear_timeout(r):
             if self.ping_old_slave_timeout:
@@ -604,7 +435,7 @@ class DuplicateSlaveArbitrator(object):
 
         def old_gone(f):
             if self.ping_old_slave_timed_out:
-                return # ignore after timeout
+                return  # ignore after timeout
             f.trap(pb.PBConnectionLost, pb.DeadReferenceError)
             log.msg(("connection lost while pinging old slave '%s' - " +
                      "keeping new slave") % self.buildslave.slavename)
@@ -618,7 +449,7 @@ class DuplicateSlaveArbitrator(object):
 
         def done(_):
             if self.ping_old_slave_timed_out:
-                return # ignore after timeout
+                return  # ignore after timeout
             self.ping_old_slave_done = True
             self.maybe_done()
         d.addCallback(done)
@@ -635,7 +466,7 @@ class DuplicateSlaveArbitrator(object):
 
     def start_new_slave(self):
         # just in case
-        if not self.new_slave_d: # pragma: ignore
+        if not self.new_slave_d:  # pragma: ignore
             return
 
         d = self.new_slave_d
@@ -648,7 +479,7 @@ class DuplicateSlaveArbitrator(object):
                 d.callback(self.buildslave)
             self.buildslave.subscribeToDetach(detached)
             self.old_remote.broker.transport.loseConnection()
-        else: # pragma: ignore
+        else:  # pragma: ignore
             # by some unusual timing, it's quite possible that the old slave
             # has disconnected while the arbitration was going on.  In that
             # case, we're already done!
@@ -656,12 +487,10 @@ class DuplicateSlaveArbitrator(object):
 
     def disconnect_new_slave(self):
         # just in case
-        if not self.new_slave_d: # pragma: ignore
+        if not self.new_slave_d:  # pragma: ignore
             return
 
         d = self.new_slave_d
         self.new_slave_d = None
         log.msg("rejecting duplicate slave with exception")
         d.errback(Failure(RuntimeError("rejecting duplicate slave")))
-
-

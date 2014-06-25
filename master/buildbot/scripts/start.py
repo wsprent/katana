@@ -14,15 +14,20 @@
 # Copyright Buildbot Team Members
 
 
-import os, sys
+import os
+import sys
+
 from buildbot.scripts import base
-from twisted.internet import reactor, protocol
-from twisted.python.runtime import platformType
-from buildbot.scripts.logwatcher import LogWatcher
 from buildbot.scripts.logwatcher import BuildmasterTimeoutError
+from buildbot.scripts.logwatcher import LogWatcher
 from buildbot.scripts.logwatcher import ReconfigError
+from twisted.internet import protocol
+from twisted.internet import reactor
+from twisted.python.runtime import platformType
+
 
 class Follower:
+
     def follow(self, basedir):
         self.rc = 0
         print "Following twistd.log until startup finished.."
@@ -42,7 +47,7 @@ class Follower:
             print """
 The buildmaster took more than 10 seconds to start, so we were unable to
 confirm that it started correctly. Please 'tail twistd.log' and look for a
-line that says 'configuration update complete' to verify correct startup.
+line that says 'BuildMaster is Running' to verify correct startup.
 """
         elif why.check(ReconfigError):
             print """
@@ -59,6 +64,7 @@ stop it, fix the config file, and restart.
         self.rc = 1
         reactor.stop()
 
+
 def launchNoDaemon(config):
     os.chdir(config['basedir'])
     sys.path.insert(0, os.path.abspath(config['basedir']))
@@ -66,7 +72,7 @@ def launchNoDaemon(config):
     argv = ["twistd",
             "--no_save",
             '--nodaemon',
-            "--logfile=twistd.log", # windows doesn't use the same default
+            "--logfile=twistd.log",  # windows doesn't use the same default
             "--python=buildbot.tac"]
 
     if 'profile' in config and config['profile']:
@@ -80,6 +86,7 @@ def launchNoDaemon(config):
     # windows.
     from twisted.scripts import twistd
     twistd.run()
+
 
 def launch(config):
     os.chdir(config['basedir'])
@@ -95,7 +102,7 @@ def launch(config):
             # windows.
             "from twisted.scripts import twistd; twistd.run()",
             "--no_save",
-            "--logfile=twistd.log", # windows doesn't use the same default
+            "--logfile=twistd.log",  # windows doesn't use the same default
             "--python=buildbot.tac"]
 
     if 'profile' in config and config['profile']:
@@ -105,9 +112,9 @@ def launch(config):
     # ProcessProtocol just ignores all output
     reactor.spawnProcess(protocol.ProcessProtocol(), sys.executable, argv, env=os.environ)
 
+
 def start(config):
     if not base.isBuildmasterDir(config['basedir']):
-        print "not a buildmaster directory"
         return 1
 
     if config['nodaemon']:

@@ -16,20 +16,25 @@
 
 import types
 
-from zope.interface import implements
-from twisted.python import log, components
+from twisted.internet import defer
+from twisted.internet import error
+from twisted.python import components
+from twisted.python import log
 from twisted.python.failure import Failure
-from twisted.internet import reactor, defer, error
+from zope.interface import implements
 
 from buildbot import interfaces, locks
 from buildbot.status.results import SUCCESS, WARNINGS, FAILURE, EXCEPTION, \
   RETRY, SKIPPED, worst_status, NOT_REBUILT, DEPENDENCY_FAILURE
+from buildbot.process import metrics
+from buildbot.process import properties
 from buildbot.status.builder import Results
 from buildbot.status.progress import BuildProgress
-from buildbot.process import metrics, properties
+from buildbot.util.eventual import eventually
 
 
 class Build(properties.PropertiesMixin):
+
     """I represent a single build by a single slave. Specialized Builders can
     use subclasses of Build to hold status information unique to those build
     processes.
@@ -85,11 +90,15 @@ class Build(properties.PropertiesMixin):
         @type  builder: L{buildbot.process.builder.Builder}
         """
         self.builder = builder
+        self.master = builder.master
 
-    def setLocks(self, locks):
-        self.locks = locks
+    def setLocks(self, lockList):
+        # convert all locks into their real forms
+        self.locks = [(self.builder.botmaster.getLockFromLockAccess(access), access)
+                      for access in lockList]
 
     def setSlaveEnvironment(self, env):
+        # TODO: remove once we don't have anything depending on this method or attribute
         self.slaveEnvironment = env
 
     def getSourceStamp(self, codebase=''):
@@ -123,7 +132,7 @@ class Build(properties.PropertiesMixin):
             if c.who not in blamelist:
                 blamelist.append(c.who)
         for source in self.sources:
-            if source.patch_info: #Add patch author to blamelist
+            if source.patch_info:  # Add patch author to blamelist
                 blamelist.append(source.patch_info[0])
         blamelist.sort()
         return blamelist
@@ -148,6 +157,7 @@ class Build(properties.PropertiesMixin):
 
     def getSlaveCommandVersion(self, command, oldversion=None):
         return self.slavebuilder.getSlaveCommandVersion(command, oldversion)
+
     def getSlaveName(self):
         return self.slavebuilder.slave.slavename
 
@@ -158,8 +168,8 @@ class Build(properties.PropertiesMixin):
         props.build = self
 
         # start with global properties from the configuration
-        buildmaster = self.builder.botmaster.parent
-        props.updateFromProperties(buildmaster.config.properties)
+        master = self.builder.master
+        props.updateFromProperties(master.config.properties)
 
         # from the SourceStamps, which have properties via Change
         for change in self.allChanges():
@@ -173,7 +183,7 @@ class Build(properties.PropertiesMixin):
         # now set some properties of our own, corresponding to the
         # build itself
         props.setProperty("buildnumber", self.build_status.number, "Build")
-        
+
         if self.sources and len(self.sources) == 1:
             # old interface for backwards compatibility
             source = self.sources[0]
@@ -195,11 +205,11 @@ class Build(properties.PropertiesMixin):
         buildslave_properties = slavebuilder.slave.properties
         self.getProperties().updateFromProperties(buildslave_properties)
         if slavebuilder.slave.slave_basedir:
-            self.setProperty("workdir",
-                    self.path_module.join(
-                        slavebuilder.slave.slave_basedir,
-                        self.builder.config.slavebuilddir),
-                    "slave")
+            builddir = self.path_module.join(
+                slavebuilder.slave.slave_basedir,
+                self.builder.config.slavebuilddir)
+            self.setProperty("builddir", builddir, "slave")
+            self.setProperty("workdir", builddir, "slave (deprecated)")
 
         self.slavename = slavebuilder.slave.slavename
         self.build_status.setSlavename(self.slavename)
@@ -221,24 +231,16 @@ class Build(properties.PropertiesMixin):
         self.setupSlaveBuilder(slavebuilder)
         slavebuilder.slave.updateSlaveStatus(buildStarted=build_status)
 
-        # convert all locks into their real forms
-        lock_list = []
-        for access in self.locks:
-            if not isinstance(access, locks.LockAccess):
-                # Buildbot 0.7.7 compability: user did not specify access
-                access = access.defaultAccess()
-            lock = self.builder.botmaster.getLockByID(access.lockid)
-            lock_list.append((lock, access))
-        self.locks = lock_list
         # then narrow SlaveLocks down to the right slave
-        self.locks = [(l.getLock(self.slavebuilder.slave), la)
-                       for l, la in self.locks]
+        self.locks = [(l.getLock(self.slavebuilder.slave), a)
+                      for l, a in self.locks]
         self.remote = slavebuilder.remote
         self.remote.notifyOnDisconnect(self.lostRemote)
 
         metrics.MetricCountEvent.log('active_builds', 1)
 
         d = self.deferred = defer.Deferred()
+
         def _uncount_build(res):
             metrics.MetricCountEvent.log('active_builds', -1)
             return res
@@ -251,11 +253,11 @@ class Build(properties.PropertiesMixin):
         d.addCallback(_release_slave, self.slavebuilder.slave, build_status)
 
         try:
-            self.setupBuild(expectations) # create .steps
+            self.setupBuild(expectations)  # create .steps
         except:
             # the build hasn't started yet, so log the exception as a point
-            # event instead of flunking the build. 
-            # TODO: associate this failure with the build instead. 
+            # event instead of flunking the build.
+            # TODO: associate this failure with the build instead.
             # this involves doing
             # self.build_status.buildStarted() from within the exception
             # handler
@@ -264,7 +266,7 @@ class Build(properties.PropertiesMixin):
             self.builder.builder_status.addPointEvent(["setupBuild",
                                                        "exception"])
             self.finished = True
-            self.results = FAILURE
+            self.results = EXCEPTION
             self.deferred = None
             d.callback(self)
             return d
@@ -272,6 +274,14 @@ class Build(properties.PropertiesMixin):
         self.build_status.buildStarted(self)
         self.acquireLocks().addCallback(self._startBuild_2)
         return d
+
+    @staticmethod
+    def canStartWithSlavebuilder(lockList, slavebuilder):
+        for lock, access in lockList:
+            slave_lock = lock.getLock(slavebuilder.slave)
+            if not slave_lock.isAvailable(None, access):
+                return False
+        return True
 
     def acquireLocks(self, res=None):
         self._acquiringLock = None
@@ -307,12 +317,13 @@ class Build(properties.PropertiesMixin):
             step = factory.buildStep()
             step.setBuild(self)
             step.setBuildSlave(self.slavebuilder.slave)
-            if callable (self.workdir):
-                step.setDefaultWorkdir (self.workdir (self.sources))
+            # TODO: remove once we don't have anything depending on setDefaultWorkdir
+            if callable(self.workdir):
+                step.setDefaultWorkdir(self.workdir(self.sources))
             else:
-                step.setDefaultWorkdir (self.workdir)
+                step.setDefaultWorkdir(self.workdir)
             name = step.name
-            if stepnames.has_key(name):
+            if name in stepnames:
                 count = stepnames[name]
                 count += 1
                 stepnames[name] = count
@@ -358,12 +369,13 @@ class Build(properties.PropertiesMixin):
 
         # gather owners from build requests
         owners = [r.properties['owner'] for r in self.requests
-                  if r.properties.has_key('owner')]
-        if owners: self.setProperty('owners', owners, self.reason)
+                  if "owner" in r.properties]
+        if owners:
+            self.setProperty('owners', owners, self.reason)
 
-        self.results = [] # list of FAILURE, SUCCESS, WARNINGS, SKIPPED
-        self.result = SUCCESS # overall result, may downgrade after each step
-        self.text = [] # list of text string lists (text2)
+        self.results = []  # list of FAILURE, SUCCESS, WARNINGS, SKIPPED
+        self.result = SUCCESS  # overall result, may downgrade after each step
+        self.text = []  # list of text string lists (text2)
 
     def getNextStep(self):
         """This method is called to obtain the next BuildStep for this build.
@@ -399,8 +411,8 @@ class Build(properties.PropertiesMixin):
     def _stepDone(self, results, step):
         self.currentStep = None
         if self.finished:
-            return # build was interrupted, don't keep building
-        terminate = self.stepDone(results, step) # interpret/merge results
+            return  # build was interrupted, don't keep building
+        terminate = self.stepDone(results, step)  # interpret/merge results
         if terminate:
             self.terminate = True
         return self.startNextStep()
@@ -412,9 +424,9 @@ class Build(properties.PropertiesMixin):
 
         terminate = False
         text = None
-        if type(result) == types.TupleType:
+        if isinstance(result, types.TupleType):
             result, text = result
-        assert type(result) == type(SUCCESS)
+        assert isinstance(result, type(SUCCESS)), "got %r" % (result,)
         log.msg(" step '%s' complete: %s" % (step.name, Results[result]))
         self.results.append(result)
         if text:
@@ -547,7 +559,7 @@ class Build(properties.PropertiesMixin):
             # XXX: also test a 'timing consistent' flag?
             log.msg(" setting expectations for next time")
             self.builder.setExpectations(self.progress)
-        reactor.callLater(0, self.releaseLocks)
+        eventually(self.releaseLocks)
         self.deferred.callback(self)
         self.deferred = None
 
@@ -572,5 +584,5 @@ class Build(properties.PropertiesMixin):
     # stopBuild is defined earlier
 
 components.registerAdapter(
-        lambda build : interfaces.IProperties(build.build_status),
-        Build, interfaces.IProperties)
+    lambda build: interfaces.IProperties(build.build_status),
+    Build, interfaces.IProperties)
