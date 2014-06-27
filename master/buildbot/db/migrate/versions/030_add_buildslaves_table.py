@@ -25,7 +25,7 @@ def upgrade(migrate_engine):
 
     buildslaves = sa.Table("buildslaves", metadata,
                            sa.Column("id", sa.Integer, primary_key=True),
-                           sa.Column("name", sa.String(256), nullable=False),
+                           sa.Column("name", sa.String(length=200), nullable=False),
                            sa.Column("info", JsonObject, nullable=False),
                            )
     buildslaves.create()

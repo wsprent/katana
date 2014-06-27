@@ -222,7 +222,8 @@ class MasterConfig(object):
             config.check_builders()
             config.check_status()
             config.check_horizons()
-            config.check_slavePortnum()
+            config.check_ports()
+
         finally:
             _errors = None
 

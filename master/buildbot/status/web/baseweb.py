@@ -429,7 +429,6 @@ class WebStatus(service.MultiService):
             orderByTime=self.orderConsoleByTime))
         self.putChild("tgrid", TransposedGridStatusResource())
         self.putChild("buildqueue", BuildQueueResource()) # has buildqueue
-        self.putChild("builders", BuildersResource(numbuilds=numbuilds))  # has builds/steps/logs
         self.putChild("one_box_per_builder", Redirect("builders"))
         self.putChild("changes", ChangesResource())
         self.putChild("buildslaves", BuildSlavesResource())

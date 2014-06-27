@@ -175,9 +175,7 @@ class BuildbotEngineStrategy(strategies.ThreadLocalEngineStrategy):
 
         if version_tup < (0, 6):
             raise RuntimeError("SQLAlchemy version %s is too old" % (version,))
-        if version_tup > (0, 7, 10):
-            raise RuntimeError("SQLAlchemy version %s is not supported by "
-                               "SQLAlchemy-Migrate" % (version,))
+
 
     def create(self, name_or_url, **kwargs):
         if 'basedir' not in kwargs:

@@ -51,4 +51,4 @@ class Migration(migration.MigrateTestMixin, unittest.TestCase):
                                            dict(name='bs1', info='{}'),
                                            ))
 
-        return self.do_test_migration(23, 24, setup_thd, verify_thd)
+        return self.do_test_migration(29, 30, setup_thd, verify_thd)

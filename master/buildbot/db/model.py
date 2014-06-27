@@ -26,8 +26,9 @@ from twisted.python import util
 
 try:
     from migrate.versioning.schema import ControlledSchema
+
     assert ControlledSchema  # hush pyflakes
-except ImportError:
+except ImportError as e:
     ControlledSchema = None
 
 
@@ -41,9 +42,9 @@ class Model(base.DBConnectorComponent):
     # NOTES
 
     # * server_defaults here are included to match those added by the migration
-    #   scripts, but they should not be depended on - all code accessing these
-    #   tables should supply default values as necessary.  The defaults are
-    #   required during migration when adding non-nullable columns to existing
+    # scripts, but they should not be depended on - all code accessing these
+    # tables should supply default values as necessary.  The defaults are
+    # required during migration when adding non-nullable columns to existing
     #   tables.
     #
     # * dates are stored as unix timestamps (UTC-ish epoch time)
@@ -91,7 +92,7 @@ class Model(base.DBConnectorComponent):
                                    sa.Column('objectid', sa.Integer, sa.ForeignKey('objects.id'),
                                              index=True, nullable=True),
                                    sa.Column('claimed_at', sa.Integer, nullable=False),
-                                   )
+    )
 
     # builds
 
@@ -104,7 +105,7 @@ class Model(base.DBConnectorComponent):
                                 nullable=False),
                       sa.Column('start_time', sa.Integer, nullable=False),
                       sa.Column('finish_time', sa.Integer),
-                      )
+    )
 
     # buildsets
 
@@ -115,7 +116,7 @@ class Model(base.DBConnectorComponent):
                                    sa.Column('property_name', sa.String(256), nullable=False),
                                    # JSON-encoded tuple of (value, source)
                                    sa.Column('property_value', sa.Text, nullable=False),
-                                   )
+    )
 
     # This table represents Buildsets - sets of BuildRequests that share the
     # same original cause and source information.
@@ -142,19 +143,19 @@ class Model(base.DBConnectorComponent):
                          # buildset belongs to all sourcestamps with setid
                          sa.Column('sourcestampsetid', sa.Integer,
                                    sa.ForeignKey('sourcestampsets.id')),
-                         )
+
 
                          # buildset belongs to all sourcestamps with setid
                          sa.Column('sourcestampsetid', sa.Integer,
-                             sa.ForeignKey('sourcestampsets.id'))
-                         )
+                                   sa.ForeignKey('sourcestampsets.id'))
+    )
 
     # buildslaves
     buildslaves = sa.Table("buildslaves", metadata,
                            sa.Column("id", sa.Integer, primary_key=True),
                            sa.Column("name", sa.String(256), nullable=False),
                            sa.Column("info", JsonObject, nullable=False),
-                           )
+    )
 
     # changes
 
@@ -163,7 +164,7 @@ class Model(base.DBConnectorComponent):
                             sa.Column('changeid', sa.Integer, sa.ForeignKey('changes.changeid'),
                                       nullable=False),
                             sa.Column('filename', sa.String(1024), nullable=False),
-                            )
+    )
 
     # Properties for changes
     change_properties = sa.Table('change_properties', metadata,
@@ -172,7 +173,7 @@ class Model(base.DBConnectorComponent):
                                  sa.Column('property_name', sa.String(256), nullable=False),
                                  # JSON-encoded tuple of (value, source)
                                  sa.Column('property_value', sa.String(1024), nullable=False),
-                                 )
+    )
 
     # users associated with this change; this allows multiple users for
     # situations where a version-control system can represent both an author
@@ -183,7 +184,7 @@ class Model(base.DBConnectorComponent):
                             # uid for the author of the change with the given changeid
                             sa.Column("uid", sa.Integer, sa.ForeignKey('users.uid'),
                                       nullable=False)
-                            )
+    )
 
     # Changes to the source code, produced by ChangeSources
     changes = sa.Table('changes', metadata,
@@ -229,7 +230,7 @@ class Model(base.DBConnectorComponent):
                        # later to filter changes
                        sa.Column('project', sa.String(length=512), nullable=False,
                                  server_default=''),
-                       )
+    )
 
     # sourcestamps
 
@@ -251,7 +252,7 @@ class Model(base.DBConnectorComponent):
 
                        # subdirectory in which the patch should be applied; NULL for top-level
                        sa.Column('subdir', sa.Text),
-                       )
+    )
 
     # The changes that led up to a particular source stamp.
     sourcestamp_changes = sa.Table('sourcestamp_changes', metadata,
@@ -259,13 +260,13 @@ class Model(base.DBConnectorComponent):
                                              sa.ForeignKey('sourcestamps.id'), nullable=False),
                                    sa.Column('changeid', sa.Integer, sa.ForeignKey('changes.changeid'),
                                              nullable=False),
-                                   )
+    )
 
     # A sourcestampset identifies a set of sourcestamps. A sourcestamp belongs
     # to a particular set if the sourcestamp has the same setid
     sourcestampsets = sa.Table('sourcestampsets', metadata,
                                sa.Column('id', sa.Integer, primary_key=True),
-                               )
+    )
 
     # A sourcestamp identifies a particular instance of the source code.
     # Ideally, this would always be absolute, but in practice source stamps can
@@ -299,7 +300,7 @@ class Model(base.DBConnectorComponent):
                             # each sourcestamp belongs to a set of sourcestamps
                             sa.Column('sourcestampsetid', sa.Integer,
                                       sa.ForeignKey('sourcestampsets.id')),
-                            )
+    )
 
     # schedulers
 
@@ -313,7 +314,7 @@ class Model(base.DBConnectorComponent):
                                  sa.Column('changeid', sa.Integer, sa.ForeignKey('changes.changeid')),
                                  # true (nonzero) if this change is important to this scheduler
                                  sa.Column('important', sa.Integer),
-                                 )
+    )
 
     # objects
 
@@ -326,7 +327,7 @@ class Model(base.DBConnectorComponent):
                        sa.Column('name', sa.String(128), nullable=False),
                        # object's class name, basically representing a "type" for the state
                        sa.Column('class_name', sa.String(128), nullable=False),
-                       )
+    )
 
     # This table stores key/value pairs for objects, where the key is a string
     # and the value is a JSON string.
@@ -338,20 +339,21 @@ class Model(base.DBConnectorComponent):
                             sa.Column("name", sa.String(length=256), nullable=False),
                             # value, as a JSON string
                             sa.Column("value_json", sa.Text, nullable=False),
-                            )
     )
+
 
     # mastersconfig
     mastersconfig = sa.Table("mastersconfig", metadata,
                              # unique id per master
                              sa.Column('id', sa.Integer, primary_key=True),
-                     
+
                              # master's URL (generally in the form hostname:basedir)
                              sa.Column('buildbotURL', sa.Text, nullable=False),
-                     
+
                              # objectid where the mastersconfig is stored
-                             sa.Column('objectid', sa.Integer, sa.ForeignKey('objects.id'), index=True,  unique=True, nullable=False),
-                             )
+                             sa.Column('objectid', sa.Integer, sa.ForeignKey('objects.id'), index=True, unique=True,
+                                       nullable=False),
+    )
 
     # users
     # This table identifies individual users, and contains buildbot-specific
@@ -368,7 +370,7 @@ class Model(base.DBConnectorComponent):
 
                      # password portion of user credentials for authentication
                      sa.Column("bb_password", sa.String(128)),
-                     )
+    )
 
     # This table stores information identifying a user that's related to a
     # particular interface - a version-control system, status plugin, etc.
@@ -380,18 +382,22 @@ class Model(base.DBConnectorComponent):
                           # type of user attribute, such as 'git'
                           sa.Column("attr_type", sa.String(128), nullable=False),
 
+                          # type of user attribute, such as 'git'
+                          sa.Column("attr_data", sa.String(128), nullable=False),
+    )
+
+
     # This table stores information about the user and their properties
     user_props = sa.Table("user_properties", metadata,
                           #Unique user id number
                           sa.Column("uid", sa.Integer, nullable=False),
-                  
+
                           # type of user property
                           sa.Column('prop_type', sa.String(128), nullable=False),
-                  
+
                           #type of user data
                           sa.Column('prop_data', sa.String(128), nullable=False),
-                          )
-
+    )
 
     # indexes
     sa.Index('buildrequests_buildsetid', buildrequests.c.buildsetid)
@@ -430,7 +436,7 @@ class Model(base.DBConnectorComponent):
     sa.Index('object_identity', objects.c.name, objects.c.class_name,
              unique=True)
     sa.Index('name_per_object', object_state.c.objectid, object_state.c.name,
-            unique=True)
+             unique=True)
     sa.Index('buildrequests_artifactbrid', buildrequests.c.artifactbrid, unique=False)
     sa.Index('buildrequests_triggeredbybrid', buildrequests.c.triggeredbybrid, unique=False)
     sa.Index('buildrequests_mergebrid', buildrequests.c.mergebrid, unique=False)
@@ -444,16 +450,16 @@ class Model(base.DBConnectorComponent):
 
     implied_indexes = [
         ('change_users',
-            dict(unique=False, column_names=['uid'], name='uid')),
+         dict(unique=False, column_names=['uid'], name='uid')),
         ('sourcestamps',
-            dict(unique=False, column_names=['patchid'], name='patchid')),
+         dict(unique=False, column_names=['patchid'], name='patchid')),
         ('sourcestamp_changes',
-            dict(unique=False, column_names=['changeid'], name='changeid')),
+         dict(unique=False, column_names=['changeid'], name='changeid')),
         ('buildsets',
-            dict(unique=False, column_names=['sourcestampsetid'],
-                 name='buildsets_sourcestampsetid_fkey')),
+         dict(unique=False, column_names=['sourcestampsetid'],
+              name='buildsets_sourcestampsetid_fkey')),
         ('user_user_props',
-            dict(unique=False, column_names=['uid'], name='uid')),
+         dict(unique=False, column_names=['uid'], name='uid')),
     ]
 
     #
@@ -487,12 +493,14 @@ class Model(base.DBConnectorComponent):
                 return False
 
             return db_version == repo_version
+
         return self.db.pool.do_with_engine(thd)
 
     def create(self):
         # this is nice and simple, but used only for tests
         def thd(engine):
             self.metadata.create_all(bind=engine)
+
         return self.db.pool.do_with_engine(thd)
 
     def upgrade(self):
@@ -531,6 +539,7 @@ class Model(base.DBConnectorComponent):
             if version == 'old':
                 try:
                     from migrate.versioning import schemadiff
+
                     if hasattr(schemadiff, 'ColDiff'):
                         version = "0.6.1"
                     else:

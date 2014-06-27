@@ -217,7 +217,15 @@ class ForceBuildActionResource(ForceAction):
             defer.returnValue(path_to_authzfail(req))
             return
 
-        builderName = self.builder_status.getName()
+        master = self.getBuildmaster(req)
+        owner = self.getAuthz(req).getUsernameFull(req)
+        schedulername = req.args.get("forcescheduler", ["<unknown>"])[0]
+        if schedulername == "<unknown>":
+            defer.returnValue((path_to_builder(req, self.builder_status),
+                               "forcescheduler arg not found"))
+            return
+
+        args = req.args.copy()
 
         # decode all of the args
         encoding = getRequestCharset(req)
@@ -233,7 +241,7 @@ class ForceBuildActionResource(ForceAction):
         for sch in master.allSchedulers():
             if schedulername == sch.name:
                 try:
-                    yield sch.force(owner, builder_name, **args)
+                    yield sch.force(owner, [builder_name], **args)
                     msg = ""
                 except ValidationError, e:
                     msg = html.escape(e.message.encode('ascii','ignore'))
@@ -314,43 +322,6 @@ def builder_info(build, req, codebases_arg={}):
     b['stop_url'] = path_to_build(req, build, False) + '/stop' + codebases_arg
 
     return b
-# /builders/$builder
-
-
-class StatusResourceBuilder(HtmlResource, BuildLineMixin):
-    addSlash = True
-
-    def __init__(self, builder_status, numbuilds=20):
-        HtmlResource.__init__(self)
-        self.builder_status = builder_status
-        self.numbuilds = numbuilds
-
-    b['num'] = build.getNumber()
-    b['link'] = path_to_build(req, build)
-
-    when = build.getETA()
-    if when is not None:
-        b['when'] = util.formatInterval(when)
-        b['when_time'] = time.strftime("%H:%M:%S",
-                                       time.localtime(time.time() + when))
-
-    step = build.getCurrentStep()
-    # TODO: is this necessarily the case?
-    if not step:
-        b['current_step'] = "[waiting for build slave]"
-    else:
-        if step.isWaitingForLocks():
-            b['current_step'] = "%s [waiting for build slave]" % step.getName()
-        else:
-            b['current_step'] = step.getName()
-
-    b['stop_url'] = path_to_build(req, build, False) + '/stop' + codebases_arg
-
-        when = build.getETA()
-        if when is not None:
-            b['when'] = util.formatInterval(when)
-            b['when_time'] = time.strftime("%H:%M:%S",
-                                           time.localtime(time.time() + when))
 
 # /builders/$builder
 class StatusResourceBuilder(HtmlResource, BuildLineMixin):
@@ -368,91 +339,13 @@ class StatusResourceBuilder(HtmlResource, BuildLineMixin):
     def content(self, req, cxt):
         b = self.builder_status
 
-        # Grab all the parameters which are prefixed with 'property.'.
-        # We'll use these to filter the builds and build requests we
-        # show below.
-        props = {}
-        prop_prefix = 'property.'
-        for arg, val in req.args.iteritems():
-            if arg.startswith(prop_prefix):
-                props[arg[len(prop_prefix):]] = val[0]
-
-        def prop_match(oprops):
-            for key, val in props.iteritems():
-                if key not in oprops or val != str(oprops[key]):
-                    return False
-            return True
-
+        project = cxt['selectedproject'] = b.getProject()
         cxt['name'] = b.getName()
         cxt['description'] = b.getDescription()
         req.setHeader('Cache-Control', 'no-cache')
-        slaves = b.getSlaves()
-        connected_slaves = [s for s in slaves if s.isConnected()]
 
         codebases = {}
         codebases_arg = getCodebasesArg(request=req, codebases=codebases)
-
-        numbuilds = int(req.args.get('numbuilds', ['15'])[0])
-        recent = cxt['recent'] = []
-
-        cxt['current'] = [
-            self.builder(x, req) for x in b.getCurrentBuilds()
-            if prop_match(x.getProperties())]
-
-        cxt['pending'] = []
-        statuses = yield b.getPendingBuildRequestStatuses()
-        for pb in statuses:
-            changes = []
-
-            source = yield pb.getSourceStamp()
-            submitTime = yield pb.getSubmitTime()
-            bsid = yield pb.getBsid()
-
-            properties = yield \
-                pb.master.db.buildsets.getBuildsetProperties(bsid)
-            if not prop_match(properties):
-                continue
-
-            if source.changes:
-                for c in source.changes:
-                    changes.append({'url': path_to_change(req, c),
-                                    'who': c.who,
-                                    'revision': c.revision,
-                                    'repo': c.repository})
-
-            cxt['pending'].append({
-                'when': time.strftime("%b %d %H:%M:%S",
-                                      time.localtime(submitTime)),
-                'delay': util.formatInterval(util.now() - submitTime),
-                'id': pb.brid,
-                'changes': changes,
-                'num_changes': len(changes),
-                'properties': properties,
-            })
-
-        numbuilds = cxt['numbuilds'] = int(req.args.get('numbuilds', [self.numbuilds])[0])
-        maxsearch = int(req.args.get('maxsearch', [200])[0])
-        recent = cxt['recent'] = []
-        for build in b.generateFinishedBuilds(
-                num_builds=int(numbuilds),
-                max_search=maxsearch,
-                filter_fn=lambda b: prop_match(b.getProperties())):
-            recent.append(self.get_line_values(req, build, False))
-
-        sl = cxt['slaves'] = []
-        connected_slaves = 0
-        for slave in slaves:
-            s = {}
-            sl.append(s)
-            s['link'] = path_to_slave(req, slave)
-            s['name'] = slave.getName()
-            s['friendly_name'] = slave.getFriendlyName()
-            c = s['connected'] = slave.isConnected()
-            s['paused'] = slave.isPaused()
-            s['admin'] = slave.getAdmin() or u''
-            if c:
-                connected_slaves += 1
-        cxt['connected_slaves'] = connected_slaves
 
         cxt['authz'] = self.getAuthz(req)
         cxt['builder_url'] = path_to_builder(req, b, codebases=True)
@@ -462,7 +355,6 @@ class StatusResourceBuilder(HtmlResource, BuildLineMixin):
         cxt['builder_name'] = b.getName()
 
         cxt['rt_update'] = req.args
-
 
         project_json = SingleProjectBuilderJsonResource(self.status, self.builder_status)
         project_dict = yield project_json.asDict(req)
@@ -739,7 +631,7 @@ class BuildersResource(HtmlResource):
         s = self.getStatus(req)
         if path in s.getBuilderNames():
             builder_status = s.getBuilder(path)
-            return StatusResourceBuilder(builder_status, self.numbuilds)
+            return StatusResourceBuilder(s, builder_status)
         if path == "_all":
             return StatusResourceAllBuilders(self.getStatus(req))
         if path == "_selected":

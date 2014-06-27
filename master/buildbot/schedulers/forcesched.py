@@ -698,14 +698,14 @@ class ForceScheduler(base.BaseScheduler):
         if self.shouldBuildOnAllSlaves(properties):
             res = self.addBuildForEachSlave(self.addBuildsetForSourceStampSetDetails, reason=r,
                                             sourcestamps=sourcestamps, properties=properties,
-                                            builderNames=[builder_name])
+                                            builderNames=builderNames)
             defer.returnValue(res)
         else:
             res = yield self.addBuildsetForSourceStampSetDetails(
                 reason = r,
                 sourcestamps = sourcestamps,
                 properties = properties,
-                builderNames = [ builder_name ],
+                builderNames = builderNames,
                 )
 
             defer.returnValue(res)

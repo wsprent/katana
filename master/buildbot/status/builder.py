@@ -77,7 +77,7 @@ class BuilderStatus(styles.Versioned):
     basedir = None  # filled in by our parent
     unavailable_build_numbers = set()
 
-    def __init__(self, buildername, category, master, friendly_name=None, description):
+    def __init__(self, buildername, category, master, description, friendly_name=None):
         self.name = buildername
         self.category = category
         self.description = description
@@ -695,11 +695,8 @@ class BuilderStatus(styles.Versioned):
         else:
             count = len(builds)
 
-        def combine(statuses):
-            result['pendingBuilds'] = len(statuses)
-            return result
-        d.addCallback(combine)
-        return d
+        result['pendingBuilds'] = count
+        defer.returnValue(result)
 
     def getMetrics(self):
         return self.botmaster.parent.metrics
