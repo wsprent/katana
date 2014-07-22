@@ -345,41 +345,75 @@ class StatusResourceBuilder(HtmlResource, BuildLineMixin):
         req.setHeader('Cache-Control', 'no-cache')
 
         codebases = {}
-        codebases_arg = getCodebasesArg(request=req, codebases=codebases)
+        getCodebasesArg(request=req, codebases=codebases)
 
-        cxt['authz'] = self.getAuthz(req)
+        num_builds = int(req.args.get('numbuilds', ['15'])[0])
+
         cxt['builder_url'] = path_to_builder(req, b, codebases=True)
-        cxt['codebases_arg'] = codebases_arg
         cxt['path_to_codebases'] = path_to_codebases(req, project)
         cxt['path_to_builders'] = path_to_builders(req, project)
         cxt['builder_name'] = b.getName()
 
         cxt['rt_update'] = req.args
 
+        filters = {
+            "project": self.builder_status.project,
+            "builderName": b.getName(),
+            "sources": codebases
+        }
+
         project_json = SingleProjectBuilderJsonResource(self.status, self.builder_status)
         project_dict = yield project_json.asDict(req)
         url = self.status.getBuildbotURL() + path_to_json_project_builder(req, project, self.builder_status.name)
         cxt['instant_json']['project'] = {"url": url,
-                                          "data": json.dumps(project_dict)}
+                                          "data": json.dumps(project_dict, separators=(',', ':')),
+                                          "waitForPush": self.status.master.config.autobahn_push,
+                                          "pushFilters": {
+                                              "buildStarted": filters,
+                                              "buildFinished": filters,
+                                              "stepStarted": filters,
+                                              "stepFinished": filters,
+                                          }}
 
         pending_json = SinglePendingBuildsJsonResource(self.status, self.builder_status)
         pending_dict = yield pending_json.asDict(req)
         pending_url = self.status.getBuildbotURL() + path_to_json_pending(req, self.builder_status.name)
         cxt['instant_json']['pending_builds'] = {"url": pending_url,
-                                                 "data": json.dumps(pending_dict)}
+                                                 "data": json.dumps(pending_dict, separators=(',', ':')),
+                                                 "waitForPush": self.status.master.config.autobahn_push,
+                                                 "pushFilters": {
+                                                     "buildStarted": filters,
+                                                     "requestSubmitted": filters,
+                                                     "requestCancelled": filters,
+                                                 }}
 
-        number_of_builds = 15
-        builds_json = PastBuildsJsonResource(self.status, number_of_builds,  builder_status=self.builder_status)
+        builds_json = PastBuildsJsonResource(self.status, num_builds,  builder_status=self.builder_status)
         builds_dict = yield builds_json.asDict(req)
-        builds_url = self.status.getBuildbotURL() + path_to_json_past_builds(req, self.builder_status.name, number_of_builds)
+        builds_url = self.status.getBuildbotURL() + path_to_json_past_builds(req, self.builder_status.name, num_builds)
         cxt['instant_json']['builds'] = {"url": builds_url,
-                                         "data": json.dumps(builds_dict)}
+                                         "data": json.dumps(builds_dict, separators=(',', ':')),
+                                         "waitForPush": self.status.master.config.autobahn_push,
+                                         "pushFilters": {
+                                             "buildFinished": filters
+                                         }}
 
         slaves = BuilderSlavesJsonResources(self.status, self.builder_status)
         slaves_dict = yield slaves.asDict(req)
         slaves_dict = FilterOut(slaves_dict)
         url = self.status.getBuildbotURL() + path_to_json_builder_slaves(self.builder_status.getName()) + "?filter=1"
-        cxt['instant_json']["slaves"] = {"url": url, "data": json.dumps(slaves_dict)}
+
+        del filters["sources"]
+
+        cxt['instant_json']["slaves"] = {"url": url, "data": json.dumps(slaves_dict, separators=(',', ':')),
+                                         "waitForPush": self.status.master.config.autobahn_push,
+                                         "pushFilters": {
+                                             "buildStarted": filters,
+                                             "buildFinished": filters,
+                                             "stepStarted": filters,
+                                             "stepFinished": filters,
+                                             "slaveConnected": filters,
+                                             "slaveDisconnected": filters,
+                                         }}
 
         buildForceContext(cxt, req, self.getBuildmaster(req), b.getName())
         template = req.site.buildbot_service.templates.get_template("builder.html")
@@ -618,11 +652,26 @@ class BuildersResource(HtmlResource):
         cxt['path_to_codebases'] = path_to_codebases(req, self.project.name)
         cxt['selectedproject'] = self.project.name
 
+        codebases = {}
+        getCodebasesArg(req, codebases)
         project_json = SingleProjectJsonResource(status, self.project)
         project_dict = yield project_json.asDict(req)
         url = status.getBuildbotURL() + path_to_json_builders(req, self.project.name)
+        filters = {
+            "project": self.project.name,
+            "sources": codebases
+        }
         cxt['instant_json']['builders'] = {"url": url,
-                                           "data": json.dumps(project_dict)}
+                                           "data": json.dumps(project_dict, separators=(',', ':')),
+                                           "waitForPush": status.master.config.autobahn_push,
+                                           "pushFilters": {
+                                               "buildStarted": filters,
+                                               "buildFinished": filters,
+                                               "requestSubmitted": filters,
+                                               "requestCancelled": filters,
+                                               "stepStarted": filters,
+                                               "stepFinished": filters,
+                                           }}
 
         template = req.site.buildbot_service.templates.get_template("builders.html")
         defer.returnValue(template.render(**cxt))

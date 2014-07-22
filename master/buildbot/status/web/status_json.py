@@ -201,8 +201,6 @@ class JsonResource(resource.Resource):
                 request.setHeader("content-type", 'text/plain')
             else:
                 request.setHeader("content-type", self.contentType)
-                request.setHeader("content-disposition",
-                                  "attachment; filename=\"%s.json\"" % request.path)
             # Make sure we get fresh pages.
             if self.cache_seconds:
                 now = datetime.datetime.utcnow()
@@ -286,7 +284,7 @@ class JsonResource(resource.Resource):
         if filter_out:
             data = FilterOut(data)
         if compact:
-            data = json.dumps(data, sort_keys=True, separators=(',', ':'))
+            data = json.dumps(data, separators=(',', ':'))
         else:
             data = json.dumps(data, sort_keys=True, indent=2)
         if callback:
@@ -573,6 +571,8 @@ class PastBuildsJsonResource(JsonResource):
                     if n > self.number:
                         return recent_builds
 
+            return recent_builds
+
 
 class BuildsJsonResource(AllBuildsJsonResource):
     help = """Builds that were run on a builder.
@@ -752,10 +752,15 @@ class SingleProjectJsonResource(JsonResource):
         encoding = getRequestCharset(request)
         branches = [branch.decode(encoding) for branch in request.args.get("branch", []) if branch]
 
+        defers = []
         for name in self.children:
             child = self.getChildWithDefault(name, request)
-            d = yield child.asDict(request, codebases, branches, True)
-            result['builders'].append(d)
+            d = child.asDict(request, codebases, branches, True)
+            defers.append(d)
+
+        for d in defers:
+            r = yield d
+            result['builders'].append(r)
 
         defer.returnValue(result)
 
@@ -811,10 +816,16 @@ class QueueJsonResource(JsonResource):
 
         #Convert to dictionary
         output = []
+        defers = []
         for br_dict in unclaimed_brq:
             br = BuildRequestStatus(br_dict['buildername'], br_dict['brid'], self.status)
-            d = yield br.asDict_async()
-            output.append(d)
+            d = br.asDict_async()
+            defers.append(d)
+
+        #Call the yield after to run async calls
+        for d in defers:
+            r = yield d
+            output.append(r)
 
         defer.returnValue(output)
 
@@ -935,28 +946,16 @@ class SlaveJsonResource(JsonResource):
             self.builders = []
             for builderName in self.status.getBuilderNames():
                 if self.name in self.status.getBuilder(builderName).slavenames:
-                    self.builders.append(builderName)
+                    builder_status = self.status.getBuilder(builderName)
+                    builderDict = {'name': builderName, 'friendly_name': builder_status.getFriendlyName(),
+                           'url': self.status.getURLForThing(builder_status)}
+                    self.builders.append(builderDict)
         return self.builders
 
     def asDict(self, request):
         results = self.slave_status.asDict()
-        # Enhance it by adding more informations.
-        results['builders'] = []
-        for builderName in self.getBuilders():
-            builds = []
-            builder_status = self.status.getBuilder(builderName)
-            cache_size = builder_status.master.config.caches['Builds']
-            numbuilds = int(request.args.get('numbuilds', [cache_size - 1])[0])
-            for i in range(1, numbuilds):
-                build_status = builder_status.getBuild(-i)
-                if not build_status or not build_status.isFinished():
-                    # If not finished, it will appear in runningBuilds.
-                    break
-                if build_status.getSlavename() == self.name:
-                    builds.append(build_status.getNumber())
-            builderDict = {'builds': builds, 'name': builderName, 'friendly_name': builder_status.getFriendlyName(),
-                           'url': self.status.getURLForThing(builder_status)}
-            results['builders'].append(builderDict)
+        #Add builder information
+        results['builders'] = self.getBuilders()
         return results
 
 

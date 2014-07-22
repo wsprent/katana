@@ -1,0 +1,269 @@
+@charset "UTF-8";
+/**
+* Base typographical setup (vertical rythm etc)
+* Unity3d
+* @section framework
+* @author Simon Holm
+*/
+
+@include font-face("katana_icons", font-files("katana_icons/katana_icons.eot?cachebusting=6", "katana_icons/katana_icons.ttf?cachebusting=6"));
+@include font-face("pacifico", font-files("pacifico/pacifico-webfont.eot?cachebusting=2", "pacifico/pacifico-webfont.ttf?cachebusting=2"));
+@include font-face("leckerlione", font-files("leckerlione/leckerlione-regular-webfont.eot?cachebusting=6", "leckerlione/leckerlione-regular-webfont.ttf?cachebusting=6"));
+    
+  
+// Typography
+
+.user-settings {
+	display:none;
+	@media (min-width: 1200px) {
+		display:inline;
+	}	
+	&:after {
+		color: rgba(244, 249, 255, 0.84);
+		content: "";
+		display: inline-block;
+		float: right;
+		font-family: "katana_icons";
+		font-size: 15px;
+		font-weight: normal;
+		margin-left: 15px;
+		margin-top: -1px;
+		opacity: 0.8;
+		padding: 0;
+		position: relative;  
+		@include transition( opacity 0.2s ease-in-out 0s);		
+	}
+	&:hover:after {
+		opacity: 0.5;
+	}
+}
+.right-block {
+	float:right;
+	margin-top:16px;
+	form {
+		display: inline;
+	}
+	
+}
+
+.started-time {font-weight:normal;font-size:12px;margin-top:0;margin-bottom:2px;padding-top:0;min-height:15px;}
+
+.small-head {
+	display:inline-block;
+	margin-top:0;
+	margin-bottom:5px;
+	font-size:14px;
+	font-weight:bold;	
+}
+
+.logo {
+    margin: 0;
+    padding: 0;
+}
+
+.small-head-2 {
+	padding:0;
+	margin:10px 0 10px 0;
+}
+
+.main-head {
+	margin: 34px 0 17px;
+    float: left;
+    font-size: 25px;
+    @include text-shadow(1px 1px 0 #FFF);
+    span {
+		color: #666666;
+	    font-weight: normal;
+	}
+}
+
+.head-2 {
+	margin:0 0 10px 0 ;
+	padding:0;
+	font-size:18px;
+}
+
+.overall-result {
+	text-transform: capitalize;
+	
+}
+
+
+
+h1.logo a {
+    color: #FFFFFF;
+    float: left;
+    font-family: 'Pacifico';
+    
+    font-weight: normal;
+    letter-spacing: 0.8px;
+    line-height: 0;
+    margin-right: 35px;
+    opacity: 0.76;
+    padding-top: 17px;
+	font-size: 19px;
+    text-decoration: none;
+	
+    transition: opacity 0.2s ease-in-out 0s;
+
+	span {
+		font-family:'leckerlione', cursive;
+		font-size: 17px;		
+	}
+}
+
+.logo a:hover {
+	opacity: 0.5;
+}
+
+.link-button {
+	text-decoration:underline;
+	font-weight:bold;
+	&:hover {
+		color: #999;	
+	}
+}
+
+.link-1 a {
+	text-decoration:underline;
+	color:#333;
+	&:hover {
+		color: #999;	
+	}
+}
+
+div.welcome-txt {
+	font-size: 14px;
+	ul {
+		margin: 18px 0 0 21px;
+	    padding: 0;
+	    li {
+	    	list-style: outside;
+			margin: 0 0 18px;
+		    padding: 0 0px 0 6px ;
+		}
+	}
+}
+
+.step-head {
+	position: relative;
+	display:block;
+	margin-bottom:3px;
+	font-size:14px;
+	font-weight:bold;
+}
+
+.logs-txt {
+	font-weight:bold;
+}
+
+.small-txt {
+	color:#838383;
+}
+
+.pr-small-head {
+	margin: 0 0 2px;
+}
+
+.spin-cont {
+	display:block;
+	margin-top:0px;		
+}
+
+.spin-icon {
+	opacity:0.7;	
+	content: "";	 		
+	background-image: image_url("/images/sprites.png");
+    background-position: 0 0;
+    height: 13px;
+    width: 13px;		    
+    display: inline-block;	    		
+    &.pull-bottom {
+    	margin-bottom: -2px;	
+	}
+}
+
+ 
+.building .spin-icon {
+	margin-left:5px;
+}
+ 
+.bubble {
+	background-color: #80000D;
+	@include border-radius(9px);
+	@include box-shadow (1px 1px 1px #FFFFFF);
+	color: #FFFFFF;
+	padding: 2px 6px;
+	margin-left:5px;
+	font-size: 11px;
+}
+
+.more-info {
+	font-weight:bold;
+}
+
+.buildslaves-tables .more-info {
+	//margin-right:125px;
+}
+
+.mod-1.more-info:after {
+	margin-left:3px;
+}
+
+.more-info:after {
+    font-family: "katana_icons";
+    content: "";
+    display: inline-block;
+    padding: 0;
+    font-weight:normal;
+    font-size: 16px;
+    position: relative;
+
+    /*    
+    .chrome.win & {
+    	content: "▾";
+    	@include transform (none);
+    	font-size: 18px;
+    	line-height: 13px;
+    	padding: 2px 5px 4px;
+    }*/
+}
+
+.more-info.before:before {
+	content:"▼";
+}
+
+.more-info.before:after {
+	content:"";		
+}
+
+.dropdown-info:after {
+	content: "▼";
+}
+
+@media (min-width: $screen-md-min) {
+	h1.logo a {
+		font-size: 29px;
+    	padding: 22px 0 0;
+		span {
+			font-size: 27px;
+		}
+	}
+}
+
+.point-of-failure:after {
+    font-family: "katana_icons";
+    content: "";
+    display: inline-block;
+    padding: 0;
+    font-weight:normal;
+    font-size: 16px;
+    position: relative;
+}
+
+span.log-error {
+ color: #FF1212;
+}
+span.log-warning {
+  color: #AD823A;
+}

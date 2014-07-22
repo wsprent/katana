@@ -239,6 +239,7 @@ class Git(Source):
         d = self._dovccmd(command)
         d.addCallback(self._fetchOrFallback)
         d.addCallback(self._updateSubmodule)
+        d.addCallback(self._checkoutSubmodule)
         d.addCallback(self._cleanSubmodule)
         return d
 
@@ -251,15 +252,13 @@ class Git(Source):
 
     @defer.inlineCallbacks
     def fresh(self):
-        res = yield self._dovccmd(['clean', '-f', '-f', '-d', '-x'],
-                                  abandonOnFailure=False)
-        if res == 0:
-            yield self._fetchOrFallback()
-        else:
-            yield self._doClobber()
-            yield self._fullCloneOrFallback()
-        yield self._updateSubmodule()
-        yield self._cleanSubmodule()
+        command = ['clean', '-f', '-d', '-x']
+        d = self._dovccmd(command)
+        d.addCallback(self._doFetch)
+        d.addCallback(self._updateSubmodule)
+        d.addCallback(self._checkoutSubmodule)
+        d.addCallback(self._cleanSubmodule)
+        return d
 
     def copy(self):
         cmd = buildstep.RemoteCommand('rmdir', {'dir': self.workdir,
@@ -537,7 +536,14 @@ class Git(Source):
         else:
             return defer.succeed(0)
 
-    def _cleanSubmodule(self, _=None):
+    def _checkoutSubmodule(self, _):
+        if self.submodules:
+            command = ['submodule', 'foreach', 'git', 'checkout', '-f']
+            return self._dovccmd(command)
+        else:
+            return defer.succeed(0)
+
+    def _cleanSubmodule(self, _):
         if self.submodules:
             command = ['submodule', 'foreach', 'git', 'clean', '-f', '-f', '-d']
             if self.mode == 'full' and self.method == 'fresh':

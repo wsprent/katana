@@ -1,0 +1,57 @@
+@charset "UTF-8";
+/**
+* Base variables and function definitions
+* Unity3d
+* @section framework
+* @author Sumon Holm
+*/
+ 
+// Colors
+  
+// Generics
+$color-white: #fff; // white
+
+// status colors and text
+$state-colors: 
+success #DDE6D6 false "Success", 
+failure #EFCFCF $color-white "Failure", 
+exception #DDD7DD false "Exception", 
+warnings #fa3 $color-white "Warnings", 
+skipped #CBDCE6 $color-white "Skipped", 
+inconclusive #CBDCE6 false "Inconclusive", 
+ignored #CBDCE6 false "Ignored",
+dependency_failure #FCF2F2 false "Dependency failure",
+not_rebuilt #F8FCF2 false "Not rebuilt",
+start #ccc false "Start",
+idle #F5F5F5 false "Idle",
+running #FCFACB false "Running",
+overtime #FCCBCB false "Overtime",
+offline #E7E7E7 false "Offline",
+waiting #E7E7E7 false "Waiting for buildslave",
+retry #DDD7DD false "Retry";
+
+// Create colorblind version of colors
+
+@each $colorvar in $state-colors {
+	@include colorBlindBackground (nth($colorvar, 1), nth($colorvar, 2), nth($colorvar, 3),nth($colorvar, 4));
+}
+
+.table-1 tr .success:first-child {
+	border-top:none;
+}
+
+.waiting,td.building, .current-step {
+	background-color: #FCFACB;	
+}
+
+.offline,td.offline {
+    background-color: #E7E7E7;
+    @include text-shadow(0 1px 0 #fff);
+}
+
+.idle,td.idle {
+    @include text-shadow(0 1px 0 #fff);
+}
+
+// for not implemented content
+.notimpl {color:#838383 !important;}

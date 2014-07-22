@@ -14,9 +14,15 @@
 # Copyright Buildbot Team Members
 
 
-import os
-import weakref
+import os, weakref
+import zlib
 
+from zope.interface import implements
+from twisted.python import log
+from twisted.application import strports, service
+from twisted.web import server, distrib, static, resource
+from twisted.spread import pb
+from twisted.web.util import Redirect
 from buildbot import config
 from buildbot.interfaces import IStatusReceiver
 from buildbot.status.web.forms import FormsKatanaResource
@@ -61,6 +67,28 @@ from twisted.web import server
 from twisted.web import static
 from twisted.web.util import Redirect
 from zope.interface import implements
+
+class SafeGzipEncoderFactory(server.GzipEncoderFactory):
+    """
+    Overwrite the default gzip encoder factory as some larger files
+    fail to compress on the default settings
+    """
+    def encoderForRequest(self, request):
+        compressor = server.GzipEncoderFactory.encoderForRequest(self, request)
+        if compressor is not None:
+            compressor._zlibCompressor = zlib.compressobj(self.compressLevel, zlib.DEFLATED, 10 + zlib.MAX_WBITS, 5)
+
+        return compressor
+
+if hasattr(server, 'GzipEncoderFactory'):
+    class wrapper(resource.EncodingResourceWrapper):
+        isLeaf=True
+        def __init__(self, original):
+            resource.EncodingResourceWrapper.__init__(self, original, [SafeGzipEncoderFactory()])
+        def render(self, req):
+            return resource.getChildForRequest(self.original, req).render(req)
+else:
+    wrapper = lambda x: x
 
 # this class contains the WebStatus class.  Basic utilities are in base.py,
 # and specific pages are each in their own module.
@@ -557,8 +585,11 @@ class WebStatus(service.MultiService):
             root.putChild("json", JsonStatusResource(status))
 
         root.putChild("png", PngStatusResource(status))
+        if self.master.config.gzip:
+            self.site.resource = wrapper(root)
+        else:
+            self.site.resource = root
 
-        self.site.resource = root
 
     def putChild(self, name, child_resource):
         """This behaves a lot like root.putChild() . """

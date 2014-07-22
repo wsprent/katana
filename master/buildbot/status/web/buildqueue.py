@@ -40,9 +40,14 @@ class BuildQueueResource(HtmlResource):
 
         queue = QueueJsonResource(status)
         queue_json = yield queue.asDict(req)
-        queue_json = FilterOut(queue_json)
         cxt['instant_json']['queue'] = {"url": status.getBuildbotURL() + path_to_json_build_queue(req),
-                                        "data": json.dumps(queue_json)}
+                                        "data": json.dumps(queue_json, separators=(',', ':')),
+                                        "waitForPush": status.master.config.autobahn_push,
+                                        "pushFilters": {
+                                            "buildStarted": {},
+                                            "requestSubmitted": {},
+                                            "requestCancelled": {},
+                                        }}
         
         template = req.site.buildbot_service.templates.get_template("buildqueue.html")
         defer.returnValue(template.render(**cxt))

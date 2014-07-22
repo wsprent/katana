@@ -20,6 +20,7 @@ from zope.interface import implements
 from buildbot.status.web.auth import AuthBase
 from buildbot.status.web.auth import IAuth
 from buildbot.status.web.authz import Authz
+from buildbot.test.fake import fakemaster
 
 
 class StubRequest(object):
@@ -63,6 +64,7 @@ class StubAuth(AuthBase):
 
     def __init__(self, user):
         self.user = user
+        self.master = fakemaster.make_master(wantDb=True, testcase=self)
 
     def authenticate(self, user, pw):
         return user == self.user

@@ -569,7 +569,16 @@ class HtmlResource(resource.Resource, ContextMixin):
         defer.returnValue({
             "global": {
                 "url": path_to_json_global_status(status, request),
-                "data": json.dumps(global_json)
+                "data": json.dumps(global_json),
+                "waitForPush": status.master.config.autobahn_push,
+                "pushFilters": json.dumps(
+                    {"buildStarted": {},
+                     "buildFinished": {},
+                     "requestSubmitted": {},
+                     "requestCancelled": {},
+                     "slaveConnected": {},
+                     "slaveDisconnected": {}
+                    })
             }
         })
 
@@ -626,6 +635,28 @@ class StaticFile(static.File):
 
     """This class adds support for templated directory
     views."""
+
+    def cache(self, request, expires=30, public=True):
+        #set expires header
+        from wsgiref.handlers import format_date_time as format_date
+        from datetime import date, timedelta
+        from time import mktime
+        
+        expiry = (date.today() + timedelta(expires)).timetuple()
+        request.setHeader("expires" , format_date(mktime(expiry)))
+
+        cache_control = "max-age=" + str(60*60*24*expires)
+        if public:
+            cache_control += ", public"
+        else:
+            cache_control += ", private"
+        request.setHeader("cache-control", cache_control)
+
+        return request
+
+    def render_GET(self, request):
+        self.cache(request)
+        return static.File.render_GET(self, request)
 
     def directoryListing(self):
         return DirectoryLister(self.path,
@@ -811,7 +842,7 @@ def createJinjaEnv(revlink=None, changecommentlink=None,
     all_loaders = [jinja2.FileSystemLoader(os.path.join(os.getcwd(), 'templates'))]
     if jinja_loaders:
         all_loaders.extend(jinja_loaders)
-    all_loaders.append(jinja2.PackageLoader('buildbot.status.web', 'templates'))
+    all_loaders.append(jinja2.PackageLoader('www', 'templates'))
     loader = jinja2.ChoiceLoader(all_loaders)
 
     env = jinja2.Environment(loader=loader,

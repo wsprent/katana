@@ -14,6 +14,7 @@
 # Copyright Buildbot Team Members
 
 from __future__ import with_statement
+import inspect
 
 import os
 import re
@@ -29,6 +30,11 @@ from twisted.internet import defer
 from twisted.python import failure
 from twisted.python import log
 
+#Make sure we can load our www module from the master folder
+buildbot_folder = os.path.split(inspect.getfile(inspect.currentframe()))[0] + "../../../"
+buildbot_folder = os.path.realpath(os.path.abspath(buildbot_folder))
+if buildbot_folder not in sys.path:
+    sys.path.append(buildbot_folder)
 
 class ConfigErrors(Exception):
 
@@ -83,6 +89,8 @@ class MasterConfig(object):
         self.manhole = None
         self.realTimeServer = ''
         self.analytics_code = None
+        self.gzip = True
+        self.autobahn_push = "false"
 
         self.ldap = dict(
             ldap_server = 'my_ldap_server',
@@ -122,7 +130,7 @@ class MasterConfig(object):
         "logMaxSize", "logMaxTailSize", "manhole", "mergeRequests", "metrics",
         "multiMaster", "prioritizeBuilders", "projects", "projectName", "projectURL",
         "properties", "protocols", "revlink", "schedulers", "slavePortnum", "slaves",
-        "status", "title", "titleURL", "user_managers", "validation", "realTimeServer", "analytics_code"
+        "status", "title", "titleURL", "user_managers", "validation", "realTimeServer", "analytics_code", "gzip", "autobahn_push"
     ])
 
     @classmethod
@@ -335,6 +343,12 @@ class MasterConfig(object):
 
         if 'multiMaster' in config_dict:
             self.multiMaster = config_dict["multiMaster"]
+
+        if 'gzip' in config_dict:
+            self.gzip = config_dict["gzip"]
+
+        if 'autobahn_push' in config_dict:
+            self.autobahn_push = "true" if config_dict["autobahn_push"] else "false"
 
         copy_str_param('debugPassword')
 
@@ -685,7 +699,7 @@ class MasterConfig(object):
 
 class ProjectConfig:
 
-    def __init__(self, name=None, codebases = None):
+    def __init__(self, name=None, codebases=[]):
         self.name = name
         self.codebases = codebases
 

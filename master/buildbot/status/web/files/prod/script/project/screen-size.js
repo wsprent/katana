@@ -1,2 +1,0 @@
-define(["jquery"],function(n){return{isSmallScreen:function(){var r=n(window).width()<=768;return r},isMediumScreen:function(){var r=n(window).width()<=992;return r},isLargeScreen:function(){var r=n(window).width()>=1200;return r}}});
-//# sourceMappingURL=screen-size.js.map
