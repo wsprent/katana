@@ -381,7 +381,7 @@ class Mercurial(Source):
                  decodeRC={0:SUCCESS}, evaluateCommandFunc=None):
         if not command:
             raise ValueError("No command specified")
-        cmd = buildstep.RemoteShellCommand(self.workdir, ['hg', '--traceback', '--verbose'] + command,
+        cmd = buildstep.RemoteShellCommand(self.workdir, ['hg', '--traceback'] + command,
                                            env=self.env,
                                            logEnviron=self.logEnviron,
                                            timeout=self.timeout,
@@ -492,7 +492,7 @@ class Mercurial(Source):
         defer.returnValue(0)
 
     def _update(self, _):
-        command = ['update', '--clean']
+        command = ['update', '--clean', '--verbose']
         if self.revision:
             command += ['--rev', self.revision]
         elif self.branchType == 'inrepo':
