@@ -381,7 +381,7 @@ class Mercurial(Source):
                  decodeRC={0:SUCCESS}, evaluateCommandFunc=None):
         if not command:
             raise ValueError("No command specified")
-        cmd = buildstep.RemoteShellCommand(self.workdir, ['hg', '--traceback'] + command,
+        cmd = buildstep.RemoteShellCommand(self.workdir, ['hg', '--traceback', '--verbose'] + command,
                                            env=self.env,
                                            logEnviron=self.logEnviron,
                                            timeout=self.timeout,
