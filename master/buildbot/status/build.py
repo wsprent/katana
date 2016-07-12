@@ -710,7 +710,7 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
 
         # Transient
         if include_properties:
-            result['properties'] = self.getProperties().asList()
+            result['properties'] = self.getProperties().asListOfDicts()
 
         return result
 

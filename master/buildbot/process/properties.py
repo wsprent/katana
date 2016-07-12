@@ -95,6 +95,10 @@ class Properties(util.ComparableMixin):
         """Return the properties as a simple key:value dictionary"""
         return dict(self.properties)
 
+    def asListOfDicts(self):
+        """Return the properties as a List of key:value dictionary"""
+        return dict(self.properties)
+
     def __repr__(self):
         return ('Properties(**' +
                 repr(dict((k,v[0]) for k,v in self.properties.iteritems())) +
