@@ -179,6 +179,20 @@ class UsersConnectorComponent(base.DBConnectorComponent):
         d = self.db.pool.do(thd)
         return d
 
+    def getIdentifierByMail(self, mail, author):
+        def thd(conn):
+            tbl = self.db.model.users
+
+            q = tbl.select(whereclause=(tbl.c.mail == mail))
+            users_row = conn.execute(q).fetchone()
+
+            if not users_row:
+                return author
+
+            return users_row.identifier
+        d = self.db.pool.do(thd)
+        return d
+
     def getUsers(self):
         def thd(conn):
             tbl = self.db.model.users
