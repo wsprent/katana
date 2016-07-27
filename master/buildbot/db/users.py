@@ -77,9 +77,22 @@ class UsersConnectorComponent(base.DBConnectorComponent):
             if user_data:
                 transaction = conn.begin()
                 try:
-                    conn.execute(tbl_info.insert(),
-                                 dict(uid=user_data[0].uid, attr_type=attr_type,
-                                      attr_data=attr_data))
+                    old_data = conn.execute(
+                        sa.select([tbl_info.c.attr_data],
+                                  whereclause=and_(tbl_info.c.attr_type == attr_type,
+                                                   tbl_info.c.uid == user_data[0].uid))).fetchone()
+
+                    # We need to check if the attr_data is inconsistent. Then we update instead.
+                    if old_data and old_data.attr_data != attr_data:
+                        conn.execute(tbl_info.update(
+                            whereclause=and_(tbl_info.c.uid == user_data[0].uid,
+                                             tbl_info.c.attr_type == attr_type)),
+                                     dict(attr_data=attr_data))
+
+                    else:
+                        conn.execute(tbl_info.insert(),
+                                     dict(uid=user_data[0].uid, attr_type=attr_type,
+                                          attr_data=attr_data))
                     transaction.commit()
                 except (sa.exc.IntegrityError, sa.exc.ProgrammingError):
                     transaction.rollback()
