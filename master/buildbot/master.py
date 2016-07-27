@@ -495,7 +495,6 @@ class BuildMaster(config.ReconfigurableServiceMixin, service.MultiService):
 
         d = defer.succeed(None)
         if src:
-            print mail
             # create user object, returning a corresponding uid
             d.addCallback(lambda _: users.createUserObject(self, author, src, mail))
 
