@@ -829,6 +829,17 @@ class BuildStep(object, properties.PropertiesMixin):
                 self._pendingLogObservers.remove((logname, observer))
 
     def addURL(self, name, url):
+        """
+        Adds the given URL as a hyperlink in the build step's Artifacts
+        URLs must start with 'http://' or they will be treated as relative to the current build's URL
+        @param name: the displayed text for the hyperlink
+        @param url: the URL to add.
+        """
+        # Replace keywords in the URL with actual build-exclusive variables
+        if "<<ConfigName>>" in url:
+            url = url.replace("<<ConfigName>>", "%s" % self.build.builder.name)
+        if "<<BuildNumber>>" in url:
+            url = url.replace("<<BuildNumber>>", "%s" % self.build.build_status.number)
         self.step_status.addURL(name, url)
 
     def runCommand(self, c):
@@ -865,14 +876,15 @@ class LoggingBuildStep(BuildStep):
 
     progressMetrics = ('output',)
     logfiles = {}
+    urls = {}
 
-    parms = BuildStep.parms + ['logfiles', 'lazylogfiles', 'log_eval_func']
+    parms = BuildStep.parms + ['logfiles', 'lazylogfiles', 'log_eval_func', 'urls']
     cmd = None
 
     renderables = [ 'logfiles', 'lazylogfiles' ]
 
     def __init__(self, logfiles={}, lazylogfiles=False, log_eval_func=None,
-                 timestamp_stdio=False, *args, **kwargs):
+                 timestamp_stdio=False, urls={}, *args, **kwargs):
         BuildStep.__init__(self, *args, **kwargs)
 
         if logfiles and not isinstance(logfiles, dict):
@@ -887,6 +899,7 @@ class LoggingBuildStep(BuildStep):
         if log_eval_func and not callable(log_eval_func):
             config.error(
                 "the 'log_eval_func' paramater must be a callable")
+        self.urls = urls
         self.log_eval_func = log_eval_func
         self.timestamp_stdio = timestamp_stdio
         self.addLogObserver('stdio', OutputProgressObserver("output"))
@@ -974,7 +987,9 @@ class LoggingBuildStep(BuildStep):
         return self.finished(RETRY)
 
     def commandComplete(self, cmd):
-        pass
+        # Now that the build is complete, add any URLs that the buildstep had to the buildstep's status
+        for url_key in self.urls:
+            self.addURL(url_key, self.urls[url_key])
 
     def createSummary(self, stdio):
         pass
