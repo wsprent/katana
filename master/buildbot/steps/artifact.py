@@ -74,7 +74,7 @@ class FindPreviousSuccessfulBuild(ResumeBuild):
                 url = yield self.master.status.getURLForBuildRequest(prevBuildRequest['brid'],
                                                                      self.build.builder.config.name, build_num,
                                                                      friendly_name, self.build_sourcestamps)
-                self.addURL(url['text'], url['path'])
+                self.addArtifactURL(url['text'], url['path'])
             # we are not building but reusing a previous build
             reuse = yield self.master.db.buildrequests.reusePreviousBuild(self.build.requests, prevBuildRequest['brid'])
             self.step_status.setText(["Found previous successful build."])
@@ -135,7 +135,7 @@ class CheckArtifactExists(ShellCommandResumeBuild):
                 m = foundregex.search(l)
                 if (m):
                     artifactURL = self.artifactServerURL + "/" + self.artifactPath + "/" + a
-                    self.addURL(a, artifactURL)
+                    self.addArtifactURL(a, artifactURL)
                     artifactlist.remove(a)
 
         if len(artifactlist) == 0:
@@ -332,7 +332,7 @@ class UploadArtifact(ShellCommand):
 
     def finished(self, results):
         if results == SUCCESS:
-            self.addURL(self.artifact, self.artifactURL)
+            self.addArtifactURL(self.artifact, self.artifactURL)
         ShellCommand.finished(self, results)
 
 

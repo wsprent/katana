@@ -828,6 +828,7 @@ class BuildStep(object, properties.PropertiesMixin):
                 observer.setLog(current_logs[logname])
                 self._pendingLogObservers.remove((logname, observer))
 
+
     def addURL(self, name, url):
         """
         Adds the given URL as a hyperlink in the build step's Artifacts
@@ -842,7 +843,8 @@ class BuildStep(object, properties.PropertiesMixin):
             url = url.replace("<<BuildNumber>>", "%s" % self.build.build_status.number)
         self.step_status.addURL(name, url)
 
-
+    def addArtifactURL(self, name, url):
+        self.step_status.addArtifactURL(name, url)
 
     def runCommand(self, c):
         self.cmd = c

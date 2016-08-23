@@ -70,6 +70,7 @@ class BuildStepStatus(styles.Versioned):
         self.hidden = False
         self.logs = []
         self.urls = {}
+        self.artifactUrls = {}
         self.watchers = []
         self.updates = {}
         self.finishedWatchers = []
@@ -109,6 +110,9 @@ class BuildStepStatus(styles.Versioned):
 
     def getURLs(self):
         return self.urls.copy()
+
+    def getArtifactURLs(self):
+        return self.artifactUrls.copy()
 
     def getStepType(self):
         if hasattr(self, "step_type"):
@@ -267,6 +271,10 @@ class BuildStepStatus(styles.Versioned):
         if results is not None:
             self.urls[name] = {'url': url, 'results': results}
 
+    def addArtifactURL(self, name, url, results=None):
+        self.artifactUrls[name] = url
+        if results is not None:
+            self.artifactUrls[name] = {'url': url, 'results': results}
 
     def setText(self, text):
         self.text = text
@@ -397,7 +405,7 @@ class BuildStepStatus(styles.Versioned):
                 for l in self.getLogs()]
 
         result["urls"] = self.getURLs()
-
+        result["urls"].update(self.getArtifactURLs())
 
         if request is not None:
             from buildbot.status.web.base import path_to_step

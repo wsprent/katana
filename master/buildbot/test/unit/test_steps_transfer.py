@@ -114,14 +114,14 @@ class TestFileUpload(unittest.TestCase):
         self.assertEquals(timestamp[0],desttimestamp[0])
         self.assertEquals(timestamp[1],desttimestamp[1])
 
-    def testURL(self):
+    def testArtifactURL(self):
         s = transfer.FileUpload(slavesrc=__file__, masterdest=self.destfile, url="http://server/file")
         s.build = Mock()
         s.build.getProperties.return_value = Properties()
         s.build.getSlaveCommandVersion.return_value = "2.13"
 
         s.step_status = Mock()
-        s.step_status.addURL = Mock()
+        s.step_status.addArtifactURL = Mock()
         s.buildslave = Mock()
         s.remote = Mock()
         s.start()
@@ -141,7 +141,7 @@ class TestFileUpload(unittest.TestCase):
         else:
             self.assert_(False, "No uploadFile command found")
 
-        s.step_status.addURL.assert_called_once_with(
+        s.step_status.addArtifactURL.assert_called_once_with(
             os.path.basename(self.destfile), "http://server/file")
 
 class TestDirectoryUpload(steps.BuildStepMixin, unittest.TestCase):
