@@ -129,20 +129,17 @@ class TestBuildStep(steps.BuildStepMixin, config.ConfigErrorsMixin, unittest.Tes
             def addURL(self, name, url, results=None):
                 self.urls[name] = url
 
-        class FakeBuild():
-            class FakeBuilder():
-                name = "testName"
-            class FakeBuildstatus():
-                number=1000
-            builder = FakeBuilder
-            build_status = FakeBuildstatus()
-
         url_list = {"urlLabel1": "http://www.url-<<BuilderName>>.com", "urlLabel2": "https://url<<BuildNumber>>.com"}
         corrected_url_list = {"urlLabel1": "http://www.url-testName.com", "urlLabel2": "https://url1000.com"}
+
         step = buildstep.LoggingBuildStep(urls=url_list)
-        step.build = FakeBuild()
+        step.build = mock.Mock()
+        step.build.builder.name = "testName"
+        step.build.build_status.number = 1000
         step.setStepStatus(FakeFinishableStatus())
+        # The URLs are set in the CommandComplete step
         step.commandComplete(None)
+
         self.assertEquals(step.step_status.urls, corrected_url_list)
 
     def test_unexpectedUrlFormat(self):
