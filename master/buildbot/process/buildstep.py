@@ -836,11 +836,13 @@ class BuildStep(object, properties.PropertiesMixin):
         @param url: the URL to add.
         """
         # Replace keywords in the URL with actual build-exclusive variables
-        if "<<ConfigName>>" in url:
-            url = url.replace("<<ConfigName>>", "%s" % self.build.builder.name)
+        if "<<BuilderName>>" in url:
+            url = url.replace("<<BuilderName>>", "%s" % self.build.builder.name)
         if "<<BuildNumber>>" in url:
             url = url.replace("<<BuildNumber>>", "%s" % self.build.build_status.number)
         self.step_status.addURL(name, url)
+
+
 
     def runCommand(self, c):
         self.cmd = c
@@ -899,7 +901,23 @@ class LoggingBuildStep(BuildStep):
         if log_eval_func and not callable(log_eval_func):
             config.error(
                 "the 'log_eval_func' paramater must be a callable")
-        self.urls = urls
+
+        # URLs must be in the format {"label", "http://url"}
+        if urls:
+            if not isinstance(urls, dict):
+                config.error("The 'urls' parameter must be a dictionary")
+            else:
+                for url_key, url_value in urls.iteritems():
+                    # Check that the URL is in a valid format.
+                    # Note that this check could be removed - beyond this point in the code, any URL not starting with
+                    #  http will be treated as relative to the current build's URL
+                    #  (eg: "www.value.com would become http://current.build.url/www.value.com")
+                    #  Since we don't have a use for that right now, it's best to assume such URLs are a mistake.
+                    if not str(url_value).startswith("http://") and not str(url_value).startswith("https://"):
+                        config.error("The URL for %s is in an incorrect format "
+                                     "(%s must start with http:// or https://)" % (url_key, url_value))
+                self.urls = urls
+
         self.log_eval_func = log_eval_func
         self.timestamp_stdio = timestamp_stdio
         self.addLogObserver('stdio', OutputProgressObserver("output"))
