@@ -2,6 +2,7 @@ from buildbot.process.buildstep import LoggingBuildStep, SUCCESS, SKIPPED
 from twisted.internet import defer
 from buildbot.steps.shell import ShellCommand
 import re
+import posixpath
 from buildbot.util import epoch2datetime
 from buildbot.util import safeTranslate
 from buildbot.process.slavebuilder import IDLE, BUILDING
@@ -134,7 +135,7 @@ class CheckArtifactExists(ShellCommandResumeBuild):
                 foundregex = re.compile(r'(%s)' % artifact)
                 m = foundregex.search(l)
                 if (m):
-                    artifactURL = self.artifactServerURL + "/" + self.artifactPath + "/" + a
+                    artifactURL = posixpath.join(self.artifactServerURL, self.artifactPath, a)
                     self.addArtifactURL(a, artifactURL)
                     artifactlist.remove(a)
 
@@ -284,7 +285,7 @@ def rsyncWithRetry(step, origin, destination, port=None):
     return retryCommandLinuxOS(rsync_command)
 
 def getRemoteLocation(artifactServer, artifactServerDir, artifactPath, artifact):
-    return artifactServer + ":" + artifactServerDir + "/" + artifactPath + "/" + artifact.replace(" ", r"\ ")
+    return artifactServer + ":" + posixpath.join(artifactServerDir, artifactPath, artifact.replace(" ", r"\ "))
 
 class UploadArtifact(ShellCommand):
 
@@ -317,7 +318,7 @@ class UploadArtifact(ShellCommand):
 
         artifactServerPath = self.build.getProperty("artifactServerPath", None)
         if artifactServerPath is None:
-            self.build.setProperty("artifactServerPath", self.artifactServerURL + "/" + artifactPath, "UploadArtifact")
+            self.build.setProperty("artifactServerPath", posixpath.join(self.artifactServerURL, artifactPath), "UploadArtifact")
 
         if (self.artifactDirectory):
             artifactPath += "/%s" % self.artifactDirectory
@@ -326,7 +327,7 @@ class UploadArtifact(ShellCommand):
 
         command = rsyncWithRetry(self, self.artifact, remotelocation, self.artifactServerPort)
 
-        self.artifactURL = self.artifactServerURL + "/" + artifactPath + "/" + self.artifact
+        self.artifactURL = posixpath.join(self.artifactServerURL, artifactPath, self.artifact)
         self.setCommand(command)
         ShellCommand.start(self)
 
