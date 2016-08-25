@@ -69,8 +69,9 @@ class BuildStepStatus(styles.Versioned):
         self.step_number = step_number
         self.hidden = False
         self.logs = []
-        self.urls = {}
-        self.artifactUrls = {}
+        self.urls = []
+        self.artifactDetails = []
+        self.dependencyDetails = []
         self.watchers = []
         self.updates = {}
         self.finishedWatchers = []
@@ -109,10 +110,14 @@ class BuildStepStatus(styles.Versioned):
         return self.logs
 
     def getURLs(self):
-        return self.urls.copy()
+        # running list() on a list copies it
+        return list(self.urls)
 
-    def getArtifactURLs(self):
-        return self.artifactUrls.copy()
+    def getArtifactDetails(self):
+        return list(self.artifactDetails)
+
+    def getDependencyDetails(self):
+        return list(self.dependencyDetails)
 
     def getStepType(self):
         if hasattr(self, "step_type"):
@@ -266,15 +271,14 @@ class BuildStepStatus(styles.Versioned):
         for w in self.watchers:
             w.logFinished(self.build, self, log)
 
-    def addURL(self, name, url, results=None):
-        self.urls[name] = url
-        if results is not None:
-            self.urls[name] = {'url': url, 'results': results}
+    def addURL(self, name, url):
+        self.urls.append({"url": url, "name": name})
 
-    def addArtifactURL(self, name, url, results=None):
-        self.artifactUrls[name] = url
-        if results is not None:
-            self.artifactUrls[name] = {'url': url, 'results': results}
+    def addArtifactURL(self, name, url):
+        self.artifactDetails.append({"url": url, "name": name})
+
+    def addDependencyDetails(self, name, url, results):
+        self.dependencyDetails.append({"url": url, "name": name, "results" : results})
 
     def setText(self, text):
         self.text = text
@@ -404,8 +408,7 @@ class BuildStepStatus(styles.Versioned):
             self.build.builder.status.getURLForThing(l) + args]
                 for l in self.getLogs()]
 
-        result["urls"] = self.getURLs()
-        result["urls"].update(self.getArtifactURLs())
+        result["urls"] = self.temporaryUrlConversion()
 
         if request is not None:
             from buildbot.status.web.base import path_to_step
@@ -413,4 +416,23 @@ class BuildStepStatus(styles.Versioned):
 
         return result
 
+    def temporaryUrlConversion(self):
+        """
+        This is very temporary. It's to make sure that the urls value being passed out with the results matches the old
+         format. This can be replaced when we are ready to update the output format.
 
+        Output is a dictionary where items are in one of two formats:
+        name: url
+        name: {url: results}
+        """
+        url_list = self.getURLs()
+        url_list.extend(self.getArtifactDetails())
+
+        formatted_list = {}
+        for url in url_list:
+            formatted_list[url["name"]] = url["url"]
+
+        for dep in self.getDependencyDetails():
+            formatted_list[dep["name"]] = {dep["url"], dep["results"]}
+
+        return formatted_list

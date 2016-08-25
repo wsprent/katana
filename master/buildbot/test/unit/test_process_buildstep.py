@@ -126,7 +126,7 @@ class TestBuildStep(steps.BuildStepMixin, config.ConfigErrorsMixin, unittest.Tes
         """
         class FakeFinishableStatus():
             urls = {}
-            def addURL(self, name, url, results=None):
+            def addURL(self, name, url):
                 self.urls[name] = url
 
         url_list = {"urlLabel1": "http://www.url-<<BuilderName>>.com", "urlLabel2": "https://url<<BuildNumber>>.com"}
