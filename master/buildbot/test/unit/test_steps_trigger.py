@@ -144,7 +144,7 @@ class TestTrigger(steps.BuildStepMixin, unittest.TestCase):
                              self.exp_a_trigger)
             self.assertEqual(self.scheduler_b.triggered_with,
                              self.exp_b_trigger)
-            self.assertEqual(self.step_status.addArtifactURL.call_args_list,
+            self.assertEqual(self.step_status.addDependencyDetails.call_args_list,
                              self.exp_added_urls)
 
             if self.exp_add_sourcestamp:
@@ -633,7 +633,7 @@ class TestTrigger(steps.BuildStepMixin, unittest.TestCase):
         self.step.step_status = Mock()
         self.step.step_status.getLogs = lambda: []
         self.expected_urls = []
-        self.step.step_status.addArtifactURL = lambda text, path, results=None: \
+        self.step.step_status.addDependencyDetails = lambda text, path, results=None: \
             self.expected_urls.append({'text': text, 'path': path})
         self.step.build = fakebuild.FakeBuild()
         self.step.build.builder.botmaster = m.botmaster

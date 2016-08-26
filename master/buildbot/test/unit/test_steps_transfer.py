@@ -121,7 +121,7 @@ class TestFileUpload(unittest.TestCase):
         s.build.getSlaveCommandVersion.return_value = "2.13"
 
         s.step_status = Mock()
-        s.step_status.addArtifactURL = Mock()
+        s.step_status.addArtifactDetails = Mock()
         s.buildslave = Mock()
         s.remote = Mock()
         s.start()
@@ -141,7 +141,7 @@ class TestFileUpload(unittest.TestCase):
         else:
             self.assert_(False, "No uploadFile command found")
 
-        s.step_status.addArtifactURL.assert_called_once_with(
+        s.step_status.addArtifactDetails.assert_called_once_with(
             os.path.basename(self.destfile), "http://server/file")
 
 class TestDirectoryUpload(steps.BuildStepMixin, unittest.TestCase):

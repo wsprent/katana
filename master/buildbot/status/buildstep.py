@@ -274,7 +274,7 @@ class BuildStepStatus(styles.Versioned):
     def addURL(self, name, url):
         self.urls.append({"url": url, "name": name})
 
-    def addArtifactURL(self, name, url):
+    def addArtifactDetails(self, name, url):
         self.artifactDetails.append({"url": url, "name": name})
 
     def addDependencyDetails(self, name, url, results):
