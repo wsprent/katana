@@ -843,8 +843,8 @@ class BuildStep(object, properties.PropertiesMixin):
             url = url.replace("<<BuildNumber>>", "%s" % self.build.build_status.number)
         self.step_status.addURL(name, url)
 
-    def addArtifactDetails(self, name, url):
-        self.step_status.addArtifactDetails(name, url)
+    def addArtifacts(self, name, url):
+        self.step_status.addArtifacts(name, url)
 
     def runCommand(self, c):
         self.cmd = c

@@ -70,8 +70,8 @@ class BuildStepStatus(styles.Versioned):
         self.hidden = False
         self.logs = []
         self.urls = []
-        self.artifactDetails = []
-        self.dependencyDetails = []
+        self.artifacts = []
+        self.dependencies = []
         self.watchers = []
         self.updates = {}
         self.finishedWatchers = []
@@ -113,11 +113,11 @@ class BuildStepStatus(styles.Versioned):
         # running list() on a list copies it
         return list(self.urls)
 
-    def getArtifactDetails(self):
-        return list(self.artifactDetails)
+    def getArtifacts(self):
+        return list(self.artifacts)
 
-    def getDependencyDetails(self):
-        return list(self.dependencyDetails)
+    def getDependencies(self):
+        return list(self.dependencies)
 
     def getStepType(self):
         if hasattr(self, "step_type"):
@@ -274,11 +274,11 @@ class BuildStepStatus(styles.Versioned):
     def addURL(self, name, url):
         self.urls.append({"url": url, "name": name})
 
-    def addArtifactDetails(self, name, url):
-        self.artifactDetails.append({"url": url, "name": name})
+    def addArtifacts(self, name, url):
+        self.artifacts.append({"url": url, "name": name})
 
-    def addDependencyDetails(self, name, url, results):
-        self.dependencyDetails.append({"url": url, "name": name, "results" : results})
+    def addDependencies(self, name, url, results):
+        self.dependencies.append({"url": url, "name": name, "results" : results})
 
     def setText(self, text):
         self.text = text
@@ -426,13 +426,13 @@ class BuildStepStatus(styles.Versioned):
         name: {url: results}
         """
         url_list = self.getURLs()
-        url_list.extend(self.getArtifactDetails())
+        url_list.extend(self.getArtifacts())
 
         formatted_list = {}
         for url in url_list:
             formatted_list[url["name"]] = url["url"]
 
-        for dep in self.getDependencyDetails():
+        for dep in self.getDependencies():
             formatted_list[dep["name"]] = {dep["url"], dep["results"]}
 
         return formatted_list

@@ -67,10 +67,10 @@ class TestFindPreviousSuccessfulBuild(steps.BuildStepMixin, config.ConfigErrorsM
 
         self.build.builder.builder_status.getFriendlyName = lambda: "A"
 
-        def addArtifactDetails(name, url):
+        def addArtifacts(name, url):
             self.step_status.urls[name] = url
 
-        self.step_status.addArtifactDetails = addArtifactDetails
+        self.step_status.addArtifacts = addArtifacts
 
         fake_br = fakedb.BuildRequest(id=1, buildsetid=1, buildername="A", complete=1, results=0)
         fake_ss = fakedb.SourceStamp(id=1, branch='master', repository='https://url/project',

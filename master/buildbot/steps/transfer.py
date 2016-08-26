@@ -261,7 +261,7 @@ class FileUpload(_TransferBuildStep):
 
         self.step_status.setText(['uploading', os.path.basename(source)])
         if self.url is not None:
-            self.addArtifactDetails(os.path.basename(masterdest), self.url)
+            self.addArtifacts(os.path.basename(masterdest), self.url)
 
         # we use maxsize to limit the amount of data on both sides
         fileWriter = _FileWriter(masterdest, self.maxsize, self.mode)
@@ -331,7 +331,7 @@ class DirectoryUpload(_TransferBuildStep):
 
         self.step_status.setText(['uploading', os.path.basename(source)])
         if self.url is not None:
-            self.addArtifactDetails(os.path.basename(masterdest), self.url)
+            self.addArtifacts(os.path.basename(masterdest), self.url)
         
         # we use maxsize to limit the amount of data on both sides
         dirWriter = _DirectoryWriter(masterdest, self.maxsize, self.compress, 0600)
