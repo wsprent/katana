@@ -68,7 +68,7 @@ class TestFindPreviousSuccessfulBuild(steps.BuildStepMixin, config.ConfigErrorsM
         self.build.builder.builder_status.getFriendlyName = lambda: "A"
 
         def addArtifacts(name, url):
-            self.step_status.urls[name] = url
+            self.step_status.urls.append( dict(name=name, url=url) )
 
         self.step_status.addArtifacts = addArtifacts
 
@@ -110,7 +110,7 @@ class TestFindPreviousSuccessfulBuild(steps.BuildStepMixin, config.ConfigErrorsM
 
 
         self.expectOutcome(result=SUCCESS, status_text=['Found previous successful build.'])
-        self.expectURLS({'A #1': 'baseurl/builders/A/builds/1?c_branch=master'})
+        self.expectURLS([{'name': 'A #1', 'url': 'baseurl/builders/A/builds/1?c_branch=master'}])
         return self.runStep()
 
     def test_force_rebuild(self):

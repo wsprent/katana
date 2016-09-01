@@ -611,9 +611,21 @@ class IBuildStepStatus(Interface):
         upon previous builds)."""
 
     def getURLs():
-        """Returns a dictionary of URLs. Each key is a link name (a short
-        string, like 'results' or 'coverage'), and each value is a URL. These
-        links will be displayed along with the LogFiles.
+        """Returns a list of URL dictionaries in the format {"name": X, "url": Y}. Each name is a display label (a short
+        string, like 'results' or 'coverage'), and each URL is a hyperlink. These links will be displayed along with
+        the LogFiles.
+        """
+
+    def getArtifacts():
+        """Returns a list of URL dictionaries in the format {"name": X, "url": Y}, where the URL is pointing to a remote
+        artifact location. Each name is a display label (a short string, like 'results' or 'coverage'), and each URL is
+        a hyperlink.
+        """
+
+    def getDependencies():
+        """Returns a list of URL dictionaries in the format {"name": X, "url": Y, "results": Z}, where the URL is
+        pointing to another build. Each name is a display label (a short string, like 'results' or 'coverage'), each
+        URL is a hyperlink, and each result is an integer.
         """
 
     def getLogs():

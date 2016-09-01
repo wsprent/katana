@@ -880,7 +880,7 @@ class LoggingBuildStep(BuildStep):
 
     progressMetrics = ('output',)
     logfiles = {}
-    urls = {}
+    urls = []
 
     parms = BuildStep.parms + ['logfiles', 'lazylogfiles', 'log_eval_func', 'urls']
     cmd = None
@@ -888,7 +888,7 @@ class LoggingBuildStep(BuildStep):
     renderables = [ 'logfiles', 'lazylogfiles' ]
 
     def __init__(self, logfiles={}, lazylogfiles=False, log_eval_func=None,
-                 timestamp_stdio=False, urls={}, *args, **kwargs):
+                 timestamp_stdio=False, urls=[], *args, **kwargs):
         BuildStep.__init__(self, *args, **kwargs)
 
         if logfiles and not isinstance(logfiles, dict):
@@ -904,20 +904,22 @@ class LoggingBuildStep(BuildStep):
             config.error(
                 "the 'log_eval_func' paramater must be a callable")
 
-        # URLs must be in the format {"label", "http://url"}
+        # URLs must be in the format {"name": name, "url": url)
         if urls:
-            if not isinstance(urls, dict):
-                config.error("The 'urls' parameter must be a dictionary")
-            else:
-                for url_key, url_value in urls.iteritems():
-                    # Check that the URL is in a valid format.
-                    # Note that this check could be removed - beyond this point in the code, any URL not starting with
-                    #  http will be treated as relative to the current build's URL
-                    #  (eg: "www.value.com would become http://current.build.url/www.value.com")
-                    #  Since we don't have a use for that right now, it's best to assume such URLs are a mistake.
-                    if not str(url_value).startswith("http://") and not str(url_value).startswith("https://"):
-                        config.error("The URL for %s is in an incorrect format "
-                                     "(%s must start with http:// or https://)" % (url_key, url_value))
+            if not isinstance(urls, list):
+                config.error("The 'urls' parameter must be a list")
+            for url in urls:
+                if not isinstance(url, dict):
+                    config.error("The urls parameter must be a lsit of dictionaries")
+                urlLink = url["url"]
+                # Check that the URL is in a valid format.
+                # Note that this check could be removed - beyond this point in the code, any URL not starting with
+                #  http will be treated as relative to the current build's URL
+                #  (eg: "www.value.com would become http://current.build.url/www.value.com")
+                #  Since we don't have a use for that right now, it's best to assume such URLs are a mistake.
+                if not str(urlLink).startswith("http://") and not str(urlLink).startswith("https://"):
+                    config.error("The URL for %s is in an incorrect format "
+                                 "(%s must start with http:// or https://)" % (url["name"], urlLink))
                 self.urls = urls
 
         self.log_eval_func = log_eval_func
@@ -1008,8 +1010,8 @@ class LoggingBuildStep(BuildStep):
 
     def commandComplete(self, cmd):
         # Now that the build is complete, add any URLs that the buildstep had to the buildstep's status
-        for url_key in self.urls:
-            self.addURL(url_key, self.urls[url_key])
+        for url in self.urls:
+            self.addURL(url["name"], url["url"])
 
     def createSummary(self, stdio):
         pass

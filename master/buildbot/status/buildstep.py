@@ -62,6 +62,9 @@ class BuildStepStatus(styles.Versioned):
     statistics = {}
     step_number = None
     hidden = False
+    urls = []
+    artifacts = []
+    dependencies = []
 
     def __init__(self, parent, master, step_number, step_type):
         assert interfaces.IBuildStatus(parent)
@@ -272,13 +275,13 @@ class BuildStepStatus(styles.Versioned):
             w.logFinished(self.build, self, log)
 
     def addURL(self, name, url):
-        self.urls.append({"url": url, "name": name})
+        self.urls.append(dict(url=url, name=name))
 
     def addArtifacts(self, name, url):
-        self.artifacts.append({"url": url, "name": name})
+        self.artifacts.append(dict(url=url, name=name))
 
     def addDependencies(self, name, url, results):
-        self.dependencies.append({"url": url, "name": name, "results" : results})
+        self.dependencies.append(dict(url=url, name=name, results=results))
 
     def setText(self, text):
         self.text = text
@@ -367,7 +370,9 @@ class BuildStepStatus(styles.Versioned):
 
     def upgradeToVersion1(self):
         if not hasattr(self, "urls"):
-            self.urls = {}
+            self.urls = []
+            self.artifacts = []
+            self.dependencies = []
         self.wasUpgraded = True
 
     def upgradeToVersion2(self):

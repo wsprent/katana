@@ -105,7 +105,7 @@ class BuildStepMixin(object):
 
         ss.status_text = None
         ss.logs = {}
-        ss.urls = {}
+        ss.urls = []
 
         def ss_setText(strings):
             ss.status_text = strings

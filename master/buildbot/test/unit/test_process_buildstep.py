@@ -125,12 +125,13 @@ class TestBuildStep(steps.BuildStepMixin, config.ConfigErrorsMixin, unittest.Tes
         Makes sure that URLs are being added properly and that keywords in a URL are replaced with actual values
         """
         class FakeFinishableStatus():
-            urls = {}
+            urls = []
             def addURL(self, name, url):
-                self.urls[name] = url
+                self.urls.append(dict(url = url, name = name))
 
-        url_list = {"urlLabel1": "http://www.url-<<BuilderName>>.com", "urlLabel2": "https://url<<BuildNumber>>.com"}
-        corrected_url_list = {"urlLabel1": "http://www.url-testName.com", "urlLabel2": "https://url1000.com"}
+
+        url_list = [{"url":"http://www.url-<<BuilderName>>.com", "name":"urlLabel1"}, {"url":"https://url<<BuildNumber>>.com", "name":"urlLabel2"}]
+        corrected_url_list = [{"url":"http://www.url-testName.com", "name":"urlLabel1"}, {"url":"https://url1000.com", "name":"urlLabel2"}]
 
         step = buildstep.LoggingBuildStep(urls=url_list)
         step.build = mock.Mock()
@@ -146,14 +147,14 @@ class TestBuildStep(steps.BuildStepMixin, config.ConfigErrorsMixin, unittest.Tes
         """
         When LoggingBuildStep is passed a non-dictionary URL, it reports a config error.
         """
-        self.assertRaisesConfigError("The 'urls' parameter must be a dictionary",
+        self.assertRaisesConfigError("The 'urls' parameter must be a list",
                                      lambda: buildstep.LoggingBuildStep(urls="http://www.url.com"))
 
     def test_incorrectUrlSyntax(self):
         """
         When LoggingBuildStep is passed a URL without starting with http:// or similar, it reports a config error
         """
-        url_list = {"urlLabel1": "http://www.url1.com", "urlLabel2": "https://url2.com", "urlLabel3": "www.url3.com"}
+        url_list = [{"url":"http://www.url1.com", "name":"urlLabel1"}, {"url":"https://url2.com", "name":"urlLabel2"}, {"url":"www.url3.com", "name":"urlLabel3"}]
         self.assertRaisesConfigError('The URL for urlLabel3 is in an incorrect format (www.url3.com must start with http:// or https://)',
                                      lambda: buildstep.LoggingBuildStep(urls=url_list))
 
