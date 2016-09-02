@@ -183,8 +183,10 @@ class StepBox(components.Adapter):
                 url = None
             cxt['logs'].append(dict(name=name, url=url))
 
-        for url in self.original.getURLs():
-            cxt['urls'].append(dict(link=url["url"],name=url["name"]))
+
+        cxt['urls'].extend(self.original.getURLs())
+        cxt['urls'].extend(self.original.getArtifacts())
+        cxt['urls'].extend(self.original.getDependencies())
 
         template = req.site.buildbot_service.templates.get_template("box_macros.html")
         text = template.module.step_box(**cxt)

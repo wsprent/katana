@@ -920,7 +920,7 @@ class LoggingBuildStep(BuildStep):
                 if not str(urlLink).startswith("http://") and not str(urlLink).startswith("https://"):
                     config.error("The URL for %s is in an incorrect format "
                                  "(%s must start with http:// or https://)" % (url["name"], urlLink))
-                self.urls = urls
+            self.urls = urls
 
         self.log_eval_func = log_eval_func
         self.timestamp_stdio = timestamp_stdio

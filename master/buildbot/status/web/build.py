@@ -360,23 +360,10 @@ class StatusResourceBuild(HtmlResource):
 
             step['link'] = path_to_step(req, s)
             step['text'] = " ".join(s.getText())
-            urls = []
 
-            # TODO: rather than doing this, it'd be easier to refactor logname
-            for url in s.getURLs():
-                urlName = url["name"]
-                urlLink = url["url"]
-                if "results" in url:
-                    if url["results"] in css_classes:
-                        url_dict = dict(logname=urlName, url=urlLink['url'] + codebases_arg,
-                                        results=css_classes[url['results']])
-                    else:
-                        url_dict = dict(logname=urlName, url=urlLink['url'] + codebases_arg)
-                else:
-                    url_dict = dict(logname=urlName, url=urlLink + codebases_arg)
-                urls.append(url_dict)
-
-            step['urls'] = urls
+            step['urls'] = s.getURLs()
+            step['urls'].extend(s.getArtifacts())
+            step['urls'].extend(s.getDependencies())
 
             step['logs']= []
             for l in s.getLogs():
