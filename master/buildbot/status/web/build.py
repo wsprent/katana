@@ -361,9 +361,25 @@ class StatusResourceBuild(HtmlResource):
             step['link'] = path_to_step(req, s)
             step['text'] = " ".join(s.getText())
 
-            step['urls'] = s.getURLs()
-            step['urls'].extend(s.getArtifacts())
-            step['urls'].extend(s.getDependencies())
+            step['urls'] = []
+            for url in s.getURLs():
+                newUrl = dict(name=url["name"], url=url["url"] + codebases_arg)
+                step['urls'].append(newUrl)
+
+
+            step['artifacts'] = []
+            for artif in s.getArtifacts():
+                newArtifact = dict(name=artif["name"], url=artif["url"] + codebases_arg)
+                step['artifacts'].append(newArtifact)
+
+            step['dependencies'] = []
+            for dep in s.getDependencies():
+                if dep["result"] in css_classes:
+                    newDependency = dict(name=dep["name"], url=dep["url"] + codebases_arg,
+                                    results=css_classes[dep["result"]])
+                else:
+                    newDependency = dict(name=dep["name"], url=dep["url"] + codebases_arg)
+                step['dependencies'].append(newDependency)
 
             step['logs']= []
             for l in s.getLogs():

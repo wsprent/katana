@@ -413,31 +413,12 @@ class BuildStepStatus(styles.Versioned):
             self.build.builder.status.getURLForThing(l) + args]
                 for l in self.getLogs()]
 
-        result["urls"] = self.temporaryUrlConversion()
+        result["urls"] = self.getURLs()
+        result["artifacts"] = self.getArtifacts()
+        result["dependencies"] = self.getDependencies()
 
         if request is not None:
             from buildbot.status.web.base import path_to_step
             result['url'] = path_to_step(request, self)
 
         return result
-
-    def temporaryUrlConversion(self):
-        """
-        This is very temporary. It's to make sure that the urls value being passed out with the results matches the old
-         format. This can be replaced when we are ready to update the output format.
-
-        Output is a dictionary where items are in one of two formats:
-        name: url
-        name: {url: results}
-        """
-        url_list = self.getURLs()
-        url_list.extend(self.getArtifacts())
-
-        formatted_list = {}
-        for url in url_list:
-            formatted_list[url["name"]] = url["url"]
-
-        for dep in self.getDependencies():
-            formatted_list[dep["name"]] = {dep["url"], dep["results"]}
-
-        return formatted_list
