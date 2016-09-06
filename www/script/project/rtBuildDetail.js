@@ -123,13 +123,8 @@ define(function (require) {
                 }
 
                 stepData.hasURLs = Object.keys(stepData.urls).length > 0;
-                $.each(stepData.urls, function (i, url) {
-                    if (url.url !== undefined) {
-                        stepData.hasDependency = true;
-                        return false;
-                    }
-                    return true;
-                });
+                stepData.hasArtifacts = Object.keys(stepData.artifacts).length > 0;
+                stepData.hasDependencies = Object.keys(stepData.dependencies).length > 0;
 
                 var cssClass = helpers.getCssClassFromStatus(status);
                 var startTime = stepData.times[0];
@@ -161,11 +156,11 @@ define(function (require) {
 
             /*jslint unparam: true*/
             $.each(data.steps, function (i, obj) {
-                if (obj.urls !== undefined) {
-                    $.each(obj.urls, function (name, url) {
-                        if (typeof url === "string") {
-                            artifactsDict[name] = url;
-                        }
+                if (obj.artifacts !== undefined) {
+                    $.each(obj.artifacts, function (j, obj) {
+
+                        artifactsDict[obj["name"]] = obj["url"];
+
                     });
                 }
             });

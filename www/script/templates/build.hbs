@@ -41,25 +41,39 @@
 
             {{#if s.hasURLs}}
                 <div class="logs-txt">
-                  {{#if s.hasDependency}}
-                    Dependencies
-                    {{else}}
-                    Artifacts
-                  {{/if}}
+                    URLs
                 </div>
                 <ul class="log-list log-list-js dependency-list">
                   {{#each s.urls }}
-                      {{#if results includeZero=true}}
-                          <li class="log-list-{{buildCSSClass this.results }} urls-mod clearfix">
-                            <a title="{{ this.results }}" href="{{ this.url }}"><span class="{{buildCSSClass this.results }}"></span>{{ @key }}</a>
-                          </li>
-                      {{else}}
-                          {{results}}
-                          <li class="artifact-js"><a target="_blank" href="{{ this }}">{{ @key }}</a></li>
-                      {{/if}}
+                    <li class="artifact-js"><a target="_blank" href="{{ this.url }}">{{ this.name }}</a></li>
                   {{/each}}
                 </ul>
-          {{/if}}
+            {{/if}}
+
+            {{#if s.hasArtifacts}}
+                <div class="logs-txt">
+                    Artifacts
+                </div>
+                <ul class="log-list log-list-js dependency-list">
+                  {{#each s.artifacts }}
+                    <li class="artifact-js"><a target="_blank" href="{{ this.url }}">{{ this.name }}</a></li>
+                  {{/each}}
+                </ul>
+            {{/if}}
+
+            {{#if s.hasDependencies}}
+                <div class="logs-txt">
+                    Dependencies
+                </div>
+                <ul class="log-list log-list-js dependency-list">
+                  {{#each s.dependencies }}
+                    <li class="log-list-{{buildCSSClass this.results }} urls-mod clearfix">
+                      <a title="{{ this.results }}" href="{{ this.url }}"><span class="{{buildCSSClass this.results }}"></span>{{ this.name }}</a>
+                    </li>
+                  {{/each}}
+                </ul>
+            {{/if}}
+
         </li>
     {{/stepStarted}}
 
