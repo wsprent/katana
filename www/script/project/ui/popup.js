@@ -9,7 +9,8 @@ define(function (require) {
         timeElements = require('timeElements'),
         toastr = require('toastr'),
         popups = hb.popups,
-        naturalSort = require('libs/natural-sort');
+        naturalSort = require('libs/natural-sort'),
+        _ = require('lodash');
 
     require('libs/jquery.form');
 
@@ -486,23 +487,25 @@ define(function (require) {
         initArtifacts: function (artifactList, artifactElem) {
             var $artifactElem = $(artifactElem);
 
+            if(!artifactList || !artifactList.length) {
+                return;
+            }
+
             $artifactElem.bind("click.katana", function (event) {
                 event.preventDefault();
 
                 var html = "";
-                if (artifactList !== undefined) {
-                    $.each(artifactList, function (name, url) {
-                        html += '<li class="artifact-js"><a target="_blank" href="{1}">{0}</a></li>'.format(name, url);
-                    });
-                    html = $('<ul/>').addClass("builders-list").html(html);
-                    var $popup = $("<div/>").popup({
-                        title: "<h3>Artifacts</h3>",
-                        html: html,
-                        destroyAfter: true
-                    });
+                _(artifactList).forEach(function (obj) {
+                    html += '<li class="artifact-js"><a target="_blank" href="{1}">{0}</a></li>'.format(obj.name, obj.url);
+                });
+                html = $('<ul/>').addClass("builders-list").html(html);
+                var $popup = $("<div/>").popup({
+                    title: "<h3>Artifacts</h3>",
+                    html: html,
+                    destroyAfter: true
+                });
 
-                    $body.append($popup);
-                }
+                $body.append($popup);
             });
         }
     };

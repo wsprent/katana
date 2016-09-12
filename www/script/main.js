@@ -38,6 +38,7 @@ require.config({
         "buildLogiFrame": "project/buildLog-iFrame",
         "login": "project/login",
         "precompiled.handlebars": "../generated/precompiled.handlebars",
+        "lodash": "libs/lodash"
     },
     shim: {
         "overscroll": {
