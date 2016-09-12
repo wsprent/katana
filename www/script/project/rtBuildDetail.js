@@ -164,13 +164,13 @@ define(function (require) {
                     });
                 }
             });
-            var reportSource = $.grep(data.logs, function(obj){ return obj[1].indexOf(".json") > -1; });
+            var reportSource = $.grep(data.logs, function(obj){ return obj.url.indexOf(".json") > -1; });
             if(!reportSource.length) {
                 reportSource = $.grep(data.logs, function (obj) {
                     return obj[1].indexOf(".xml") > -1;
                 });
             }
-            var htmlReport = $.grep(data.logs, function(obj){ return obj[1].indexOf(".html") > -1; });
+            var htmlReport = $.grep(data.logs, function(obj){ return obj.url.indexOf(".html") > -1; });
 
             $.each(reportSource.concat(htmlReport), function(i, obj){ testLogsDict[obj[0]] = obj[1] ;} );
 

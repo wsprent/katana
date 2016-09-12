@@ -696,8 +696,9 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
         # TODO(maruel): Add.
         #result['test_results'] = self.getTestResults()
         args = getCodebasesArg(request)
-        result['logs'] = [[l.getName(),
-                           self.master.status.getURLForThing(l) + args] for l in self.getLogs()]
+        result['logs'] = []
+        for log in self.getLogs():
+            result['logs'].append(dict(name=log.getName(), url="%s%s" % (self.master.status.getURLForThing(log), args)))
 
         result['isWaiting'] = False
 

@@ -384,7 +384,7 @@ class StatusResourceBuild(HtmlResource):
             step['logs']= []
             for l in s.getLogs():
                 logname = l.getName()
-                step['logs'].append({ 'link': req.childLink("steps/%s/logs/%s%s" %
+                step['logs'].append({ 'url': req.childLink("steps/%s/logs/%s%s" %
                                            (urllib.quote(s.getName(), safe=''),
                                             urllib.quote(logname, safe=''), codebases_arg)),
                                       'name': logname })

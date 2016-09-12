@@ -63,8 +63,8 @@ class TestBuildStepStatus(unittest.TestCase):
         bss1.addLog('log_1')
         self.assertEquals(
             bss1.asDict()['logs'],
-            [['log_1', ('http://localhost:8080/projects/Project/builders/builder_1/'
-                        'builds/0/steps/step_1/logs/log_1')]]
+            [{'name': 'log_1', 'url': 'http://localhost:8080/projects/Project/builders/builder_1/'
+                        'builds/0/steps/step_1/logs/log_1'}]
             )
 
     def testaddHtmlLog_with_no_content_type(self):
@@ -77,8 +77,8 @@ class TestBuildStepStatus(unittest.TestCase):
 
         self.assertEquals(
             bss1.asDict()['logs'],
-            [['htmllog_1', ('http://localhost:8080/projects/Project/builders/builder_1/'
-                        'builds/0/steps/step_1/logs/htmllog_1')]]
+            [{'name':'htmllog_1', "url":'http://localhost:8080/projects/Project/builders/builder_1/'
+                        'builds/0/steps/step_1/logs/htmllog_1'}]
             )
         self.assertEqual(len(bss1.logs), 1)
         self.assertEqual(bss1.logs[0].content_type, None)

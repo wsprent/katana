@@ -409,9 +409,9 @@ class BuildStepStatus(styles.Versioned):
         result['hidden'] = self.hidden
 
         args = getCodebasesArg(request)
-        result['logs'] = [[l.getName(),
-            self.build.builder.status.getURLForThing(l) + args]
-                for l in self.getLogs()]
+        result['logs'] = []
+        for log in self.getLogs():
+            result['logs'].append(dict(name=log.getName(), url="%s%s" % (self.build.builder.status.getURLForThing(log), args)))
 
         result["urls"] = self.getURLs()
         result["artifacts"] = self.getArtifacts()
