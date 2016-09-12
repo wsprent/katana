@@ -374,9 +374,9 @@ class StatusResourceBuild(HtmlResource):
 
             step['dependencies'] = []
             for dep in s.getDependencies():
-                if dep["result"] in css_classes:
+                if dep["results"] in css_classes:
                     newDependency = dict(name=dep["name"], url=dep["url"] + codebases_arg,
-                                    results=css_classes[dep["result"]])
+                                    results=css_classes[dep["results"]])
                 else:
                     newDependency = dict(name=dep["name"], url=dep["url"] + codebases_arg)
                 step['dependencies'].append(newDependency)
