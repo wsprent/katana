@@ -154,27 +154,6 @@ define(function (require) {
                 html,
                 artifacts = _.flattenDeep(data.steps.map(function(step) {  return step.artifacts || [] }));
 
-            /*jslint unparam: true*/
-            $.each(data.steps, function (i, obj) {
-                if (obj.artifacts !== undefined) {
-                    $.each(obj.artifacts, function (j, obj) {
-
-                        artifactsDict[obj["name"]] = obj["url"];
-
-                    });
-                }
-            });
-            var reportSource = $.grep(data.logs, function(obj){ return obj.url.indexOf(".json") > -1; });
-            if(!reportSource.length) {
-                reportSource = $.grep(data.logs, function (obj) {
-                    return obj.url.indexOf(".xml") > -1;
-                });
-            }
-            var htmlReport = $.grep(data.logs, function(obj){ return obj.url.indexOf(".html") > -1; });
-
-            $.each(reportSource.concat(htmlReport), function(i, obj){ testLogsDict[obj.name] = obj.url ;} );
-
-            /*jslint unparam: false*/
 
             if (!artifacts.length) {
                 $artifactsJSElem.html("No artifacts");
