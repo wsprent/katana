@@ -60,7 +60,8 @@
             'URIjs': 'libs/uri',
             'toastr': 'plugins/toastr',
             'precompiled.handlebars': '../generated/precompiled.handlebars',
-            'rtTestReport' : 'project/rtTestReport'
+            'rtTestReport' : 'project/rtTestReport',
+            'lodash': 'libs/lodash'
         },
 
         shim: {

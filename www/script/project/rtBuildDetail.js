@@ -9,7 +9,8 @@ define(function (require) {
         popups = require('ui.popup'),
         qs = require('libs/query-string'),
         hb = require('project/handlebars-extend'),
-        hbBuild = hb.build;
+        hbBuild = hb.build,
+        _ = require('lodash');
 
     var rtBuildDetail,
         isLoaded = false,
@@ -150,9 +151,8 @@ define(function (require) {
         },
         processArtifacts: function (data) { // for the builddetailpage. Puts the artifacts and testresuts on top
             var $artifactsJSElem = $("#artifacts-js").empty(),
-                artifactsDict = {},
-                testLogsDict = {},
-                html;
+                html,
+                artifacts = _.flattenDeep(data.steps.map(function(step) {  return step.artifacts || [] }));
 
             /*jslint unparam: true*/
             $.each(data.steps, function (i, obj) {
@@ -176,28 +176,45 @@ define(function (require) {
 
             /*jslint unparam: false*/
 
-            if (artifactsDict === undefined || Object.keys(artifactsDict).length === 0) {
+            if (!artifacts.length) {
                 $artifactsJSElem.html("No artifacts");
             } else {
-                html = '<a class="artifact-popup artifacts-js more-info" href="#">Artifacts ({0})&nbsp;</a>'.format(Object.keys(artifactsDict).length);
+                html = '<a class="artifact-popup artifacts-js more-info" href="#">Artifacts ({0})&nbsp;</a>'.format(artifacts.length);
+
                 $artifactsJSElem.html(html);
 
-                popups.initArtifacts(artifactsDict, $artifactsJSElem.find(".artifact-popup"));
+                popups.initArtifacts(artifacts, $artifactsJSElem.find(".artifact-popup"));
             }
 
-            if (Object.keys(testLogsDict).length > 0) {
-                html = '<li>Test Results</li>';
-
-                $.each(testLogsDict, function (url, name) {
-                    html += '<li class="s-logs-js"><a href="{0}">{1}</a></li>'.format(name, url);
+            if(data.logs.length) {
+                var reportSource = _.filter(data.logs, function (obj) {
+                    return obj.url.indexOf(".json") > -1;
+                });
+                if (!reportSource.length) {
+                    reportSource = _.filter(data.logs, function (obj) {
+                        return obj.url.indexOf(".xml") > -1;
+                    });
+                }
+                var htmlReport = _.filter(data.logs, function (obj) {
+                    return obj.url.indexOf(".html") > -1;
                 });
 
-                html = $("<ul/>").addClass("tests-summary-list list-unstyled").html(html);
+                var unitTestArtifacts = _.unionBy(reportSource, htmlReport, 'name')
 
-                $artifactsJSElem.append(html);
+                if (unitTestArtifacts.length) {
+                    html = '<li>Test Results</li>';
+
+                    _(unitTestArtifacts).forEach(function (obj) {
+                        html += '<li class="s-logs-js"><a href="{0}">{1}</a></li>'.format(obj.url, obj.name);
+                    });
+
+                    html = $("<ul/>").addClass("tests-summary-list list-unstyled").html(html);
+
+                    $artifactsJSElem.append(html);
+                }
             }
 
-            return html;
+            return $artifactsJSElem
         },
         refreshIfRequired: function (buildFinished) {
             //Deal with page reload
