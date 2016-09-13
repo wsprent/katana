@@ -906,13 +906,15 @@ class LoggingBuildStep(BuildStep):
             config.error(
                 "the 'log_eval_func' paramater must be a callable")
 
-        # URLs must be in the format {"name": name, "url": url)
+        # URLs must be in the format {"name": name, "url": url}
         if urls:
+            errorMsg = "The 'urls' parameter must be a list of dictionaries, " \
+                       "in the format [{\"name\": name, \"url\": url}]"
             if not isinstance(urls, list):
-                config.error("The 'urls' parameter must be a list")
+                config.error(errorMsg)
             for url in urls:
                 if not isinstance(url, dict):
-                    config.error("The urls parameter must be a lsit of dictionaries")
+                    config.error(errorMsg)
                 urlLink = url["url"]
                 # Check that the URL is in a valid format.
                 # Note that this check could be removed - beyond this point in the code, any URL not starting with

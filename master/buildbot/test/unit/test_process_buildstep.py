@@ -147,7 +147,8 @@ class TestBuildStep(steps.BuildStepMixin, config.ConfigErrorsMixin, unittest.Tes
         """
         When LoggingBuildStep is passed a non-dictionary URL, it reports a config error.
         """
-        self.assertRaisesConfigError("The 'urls' parameter must be a list",
+        error = "The 'urls' parameter must be a list of dictionaries, in the format [{\"name\": name, \"url\": url}]"
+        self.assertRaisesConfigError(error,
                                      lambda: buildstep.LoggingBuildStep(urls="http://www.url.com"))
 
     def test_incorrectUrlSyntax(self):

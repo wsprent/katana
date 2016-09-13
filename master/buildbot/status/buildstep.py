@@ -47,7 +47,7 @@ class BuildStepStatus(styles.Versioned):
     # corresponding BuildStep has started.
     implements(interfaces.IBuildStepStatus, interfaces.IStatusEvent)
 
-    persistenceVersion = 4
+    persistenceVersion = 5
     persistenceForgets = ( 'wasUpgraded', )
 
     started = None
@@ -370,9 +370,7 @@ class BuildStepStatus(styles.Versioned):
 
     def upgradeToVersion1(self):
         if not hasattr(self, "urls"):
-            self.urls = []
-            self.artifacts = []
-            self.dependencies = []
+            self.urls = {}
         self.wasUpgraded = True
 
     def upgradeToVersion2(self):
@@ -388,6 +386,13 @@ class BuildStepStatus(styles.Versioned):
     def upgradeToVersion4(self):
         if not hasattr(self, "hidden"):
             self.hidden = False
+        self.wasUpgraded = True
+
+    def upgradeToVersion5(self):
+        # TODO: we need to handle converstion of type in the new format so the UI wont break
+        self.urls = []
+        self.artifacts = []
+        self.dependencies = []
         self.wasUpgraded = True
 
     def asDict(self, request=None):
