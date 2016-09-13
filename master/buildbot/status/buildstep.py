@@ -389,10 +389,25 @@ class BuildStepStatus(styles.Versioned):
         self.wasUpgraded = True
 
     def upgradeToVersion5(self):
-        # TODO: we need to handle converstion of type in the new format so the UI wont break
+        # Convert old URL dictionary into new URL/artifacts/dependencies arrays
+        newUrls = []
+        self.dependencies = []
+        if type(self.urls) == dict:
+            for urlKey in self.urls:
+                value = self.urls[urlKey]
+                if type(value) == dict:
+                    self.dependencies.append(dict(name=urlKey, url=value['url'], results=value['results']))
+                else:
+                    newUrls.append(dict(name=urlKey, url=value))
+
         self.urls = []
         self.artifacts = []
-        self.dependencies = []
+        # If it's an artifact-based step, all former URLs should be treated as artifacts
+        if ("buildbot.steps.artifact" in str(self.step_type.__class__)):
+            self.artifacts = newUrls
+        else:
+            self.urls = newUrls
+
         self.wasUpgraded = True
 
     def asDict(self, request=None):
