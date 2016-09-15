@@ -403,12 +403,32 @@ class BuildStepStatus(styles.Versioned):
         self.urls = []
         self.artifacts = []
         # If it's an artifact-based step, all former URLs should be treated as artifacts
-        if ("buildbot.steps.artifact" in str(self.step_type.__class__)):
-            self.artifacts = newUrls
-        else:
-            self.urls = newUrls
+        if hasattr(self, "step_type"):
+            if ("buildbot.steps.artifact" in self.step_type):
+                self.artifacts = newUrls
+            else:
+                self.urls = newUrls
 
         self.wasUpgraded = True
+
+        ###### The following code is for if this version needs to be reverted
+        # def upgradeToVersion6(self):
+        #    # Convert old URL dictionary into new URL/artifacts/dependencies arrays
+        #    oldUrls = []
+        #    oldUrls.extend(self.urls)
+        #    oldUrls.extend(self.artifacts)
+        #    newUrls = {}
+        #    for u in oldUrls:
+        #        name = u['name']
+        #        url = u['url']
+        #        newUrls[name] = url
+        #    for u2 in self.dependencies:
+        #        name = u2['name']
+        #        url = u2['url']
+        #        results = u2['results']
+        #        newUrls[name] = dict(url=url, results=results)
+        #    self.urls = newUrls
+        #    self.wasUpgraded = True
 
     def asDict(self, request=None):
         from buildbot.status.web.base import getCodebasesArg
