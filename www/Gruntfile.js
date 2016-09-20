@@ -57,6 +57,10 @@ module.exports = function (grunt) {
                 src: "fonts/katana_icons/**",
                 dist: "fonts/katana_icons/",
                 config: "fonts/katana_icons/config.json"
+            },
+            api: {
+                src: "../documentation/api/**",
+                dest: "prod/api"
             }
         },
         fontelloUpdate: {
@@ -65,6 +69,13 @@ module.exports = function (grunt) {
                 overwrite: true,
                 fonts: "<%= files.fonts.dist %>"
             }
+        },
+        copy: {
+            api: {
+                files: [
+                {  expand: true, src: '<%= files.api.src %>', dest: '<%= files.api.dest %>', filter: 'isFile', flatten: true,},
+                ],
+            },
         },
         sass: {
             options: {
@@ -211,6 +222,7 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks('grunt-open');
     grunt.loadNpmTasks('grunt-sass');
     grunt.loadNpmTasks('grunt-fontello-update');
+    grunt.loadNpmTasks('grunt-contrib-copy');
 
     // Define your tasks here
     grunt.registerTask("prod", ["test", "build:prod"]);
@@ -218,10 +230,11 @@ module.exports = function (grunt) {
         if (overrideTarget !== undefined) {
             target = overrideTarget;
         }
-        grunt.task.run(["sass", "cssmin", "handlebars:compile", "requirejs:" + target]);
+        grunt.task.run(["sass", "cssmin", "handlebars:compile", "copy", "requirejs:" + target]);
     });
     grunt.registerTask("test", ["handlebars:compile", "karma:unit"]);
     grunt.registerTask("coverage", ["karma:coverage", "open:coverage"]);
     grunt.registerTask("default", ["build", "watch"]);
+    grunt.registerTask("api", ["copy"]);
 
 };

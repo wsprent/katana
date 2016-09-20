@@ -1,0 +1,2141 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "version": "2.0.0",
+        "title": "Katana REST API",
+        "description": "Blueprint for new and refactored Katana REST API. \nIt's not the final version - this is rather proposal which aim to bring clarity to existing API documentation and way we implement it.\n",
+        "contact": {
+            "name": "Kateryna Musina",
+            "email": "kateryna@unity3d.com"
+        }
+    },
+    "host": "api.katana.com",
+    "schemes": [
+        "https"
+    ],
+    "securityDefinitions": {
+        "UserSecurity": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "USER_API_KEY"
+        },
+        "AdminSecurity": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "ADMIN_API_KEY"
+        },
+        "OauthSecurity": {
+            "type": "oauth2",
+            "flow": "accessCode",
+            "authorizationUrl": "https://oauth.host.api/authorization",
+            "tokenUrl": "https://oauth.host.api/token",
+            "scopes": {
+                "admin": "Admin scope",
+                "user": "User scope",
+                "media": "Media scope"
+            }
+        }
+    },
+    "produces": [
+        "application/json"
+    ],
+    "security": [
+        {
+            "UserSecurity": []
+        }
+    ],
+    "parameters": {
+        "ProjectPath": {
+            "name": "project",
+            "type": "string",
+            "in": "path",
+            "required": true,
+            "description": "Name of `builder`(`config`)"
+        },
+        "BuilderPath": {
+            "name": "builder",
+            "in": "path",
+            "description": "Name of project's `builder`",
+            "required": true,
+            "type": "string"
+        },
+        "ProjectsQuery": {
+            "name": "project",
+            "in": "query",
+            "required": false,
+            "description": "Name of `builder`(`config`)",
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string"
+            },
+            "collectionFormat": "multi"
+        },
+        "BuildersQuery": {
+            "name": "builder",
+            "in": "query",
+            "description": "Name of project's `builder`",
+            "required": false,
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string"
+            },
+            "collectionFormat": "multi"
+        },
+        "CodebaseQuery": {
+            "name": "codebase",
+            "in": "query",
+            "description": "Filter builds by codebase.",
+            "required": false,
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string"
+            },
+            "collectionFormat": "multi"
+        },
+        "BuildStatusQuery": {
+            "name": "status",
+            "in": "query",
+            "description": "Filter builds by status. The values are - `pending`, `idle`, `building`.",
+            "required": false,
+            "type": "string"
+        },
+        "SlaveStatusQuery": {
+            "name": "status",
+            "in": "query",
+            "description": "Filter builds by statuses. The values are - `pending`, `idle`, `building`. This is collection format.",
+            "required": false,
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string"
+            },
+            "collectionFormat": "multi"
+        },
+        "SlavePath": {
+            "name": "slave",
+            "in": "path",
+            "description": "Slave name.",
+            "required": true,
+            "type": "string"
+        },
+        "SlaveQuery": {
+            "name": "slave",
+            "in": "query",
+            "description": "Filter builds by slaves name. This is collection format.",
+            "required": false,
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string"
+            },
+            "collectionFormat": "multi"
+        },
+        "SortQuery": {
+            "name": "sort",
+            "in": "query",
+            "description": "What to sort builds by. Possible values are 'builder' name, `finished` time, `submitted` time, `buildtime` in total (or whatever), `started` time. The sort value within the array may start with + (for ascending) and -(for descending).\n",
+            "required": false,
+            "type": "array",
+            "uniqueItems": true,
+            "minItems": 1,
+            "maxItems": 3,
+            "collectionFormat": "pipes",
+            "items": {
+                "type": "string",
+                "pattern": "[-+](submitted|buildtime|builder|state|result|finished)"
+            },
+            "default": [
+                "+finished"
+            ]
+        },
+        "ResultQuery": {
+            "name": "result",
+            "in": "query",
+            "description": "Return all builds with the specific results. This is collection format.",
+            "required": false,
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string"
+            },
+            "collectionFormat": "multi"
+        },
+        "PageSizeQuery": {
+            "name": "page_size",
+            "in": "query",
+            "default": 50,
+            "description": "Page size. Default value is 50.",
+            "required": false,
+            "type": "number",
+            "format": "int32",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 100,
+            "exclusiveMaximum": false,
+            "multipleOf": 10
+        },
+        "PageNumberQuery": {
+            "name": "page",
+            "in": "query",
+            "description": "Page number. Page numbering is 1-based. Omitting parameter returns the first page.",
+            "required": false,
+            "default": 1,
+            "type": "number",
+            "format": "int32"
+        },
+        "TagsQuery": {
+            "name": "tags",
+            "in": "query",
+            "description": "Builder's tags",
+            "required": false,
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+                "type": "string"
+            },
+            "collectionFormat": "multi"
+        },
+        "IdPath": {
+            "name": "id",
+            "in": "path",
+            "description": "Number of `build` for specific `builder`(`config`). Can be positive or negative - past build.\n",
+            "required": true,
+            "type": "string"
+        },
+        "BuilderBody": {
+            "name": "builder",
+            "in": "body",
+            "required": true,
+            "description": "Run builder payload.",
+            "schema": {
+                "$ref": "#/definitions/BuilderPayload"
+            }
+        },
+        "BuilderListBody": {
+            "name": "builderlist",
+            "in": "body",
+            "required": true,
+            "description": "Builder list payload.",
+            "schema": {
+                "$ref": "#/definitions/BuildersPayload"
+            }
+        },
+        "BuildBody": {
+            "name": "build",
+            "required": true,
+            "in": "body",
+            "description": "Build payload",
+            "schema": {
+                "$ref": "#/definitions/BuildPayload"
+            }
+        },
+        "SlaveBody": {
+            "name": "slave",
+            "required": true,
+            "in": "body",
+            "description": "Slave payload",
+            "schema": {
+                "$ref": "#/definitions/SlavePayload"
+            }
+        },
+        "SlaveListBody": {
+            "name": "slave",
+            "required": true,
+            "in": "body",
+            "description": "Slave payload",
+            "schema": {
+                "type": "array",
+                "items": {
+                    "$ref": "#/definitions/SlavePayload"
+                }
+            }
+        },
+        "UserAgent": {
+            "name": "User-Agent",
+            "type": "string",
+            "in": "header",
+            "required": true
+        }
+    },
+    "paths": {
+        "/": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                }
+            ],
+            "get": {
+                "summary": "Katana global state/status",
+                "description": "Gets Katana builds load, number of running builds, number of slaves etc.\n",
+                "operationId": "getGlobalStatus",
+                "tags": [
+                    "state"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Katana global status.",
+                        "schema": {
+                            "$ref": "#/definitions/GlobalStatus"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                }
+            ],
+            "get": {
+                "summary": "All Katana projects",
+                "description": "Gets all Katana projects list. Optional query param\nof **page** and **page_size** determines page number and size of returned list.\n",
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/PageNumberQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/PageSizeQuery"
+                    }
+                ],
+                "operationId": "getAllProjects",
+                "tags": [
+                    "projects"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of projects",
+                        "schema": {
+                            "title": "ProjectsList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Builder"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                }
+            ],
+            "get": {
+                "summary": "Specific project",
+                "description": "Gets a specific Katana `project`.\n",
+                "operationId": "getProject",
+                "tags": [
+                    "projects"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of projects",
+                        "schema": {
+                            "$ref": "#/definitions/Project"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/builders": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                },
+                {
+                    "$ref": "#/parameters/UserAgent"
+                }
+            ],
+            "get": {
+                "summary": "Katana project's builders list (configs)",
+                "operationId": "getProjectBuilders",
+                "tags": [
+                    "builders"
+                ],
+                "description": "Gets project's builder lists. Optional query param\nof **page** and **page_size** determines page number and size of returned list.\n",
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/PageNumberQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/PageSizeQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/TagsQuery"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of builders (configs)",
+                        "schema": {
+                            "title": "BuildersList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Builder"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Stop several builders at once",
+                "operationId": "stopBuildersState",
+                "description": "Stop several builders at once.\n",
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/BuilderListBody"
+                    }
+                ],
+                "tags": [
+                    "builders"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of builders (configs)",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Build"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "422": {
+                        "$ref": "#/responses/422"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Force a several builders at once",
+                "operationId": "forceBuilders",
+                "description": "Forces a sevetal builders at once\n",
+                "tags": [
+                    "builders"
+                ],
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/BuilderBody"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "A builders have been forced successfully."
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "422": {
+                        "$ref": "#/responses/422"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/builders/{builder}": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                },
+                {
+                    "$ref": "#/parameters/BuilderPath"
+                }
+            ],
+            "get": {
+                "summary": "Project's builder.",
+                "description": "Gets a specific project's builder.\n",
+                "operationId": "getProjectBuilder",
+                "tags": [
+                    "builders"
+                ],
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/BuilderPath"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A projects's builder",
+                        "schema": {
+                            "$ref": "#/definitions/Builder"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Force builder",
+                "operationId": "forceBuilder",
+                "description": "Force builder\n",
+                "tags": [
+                    "builders"
+                ],
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/BuilderBody"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "A new builder",
+                        "schema": {
+                            "$ref": "#/definitions/Build"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "422": {
+                        "$ref": "#/responses/422"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Stop builder",
+                "operationId": "stopBuilder",
+                "description": "Stop builder.\n",
+                "tags": [
+                    "builders"
+                ],
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/BuilderBody"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An stopped build",
+                        "schema": {
+                            "$ref": "#/definitions/Build"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "422": {
+                        "$ref": "#/responses/422"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/builders/{builder}/builds": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                },
+                {
+                    "$ref": "#/parameters/BuilderPath"
+                }
+            ],
+            "get": {
+                "summary": "Katana all builder's builds",
+                "operationId": "getProjctsBuilderBuilds",
+                "tags": [
+                    "builds"
+                ],
+                "description": "Gets a list of Katana builder's (config's) builds. Optional query param\nof **page** and **page_size** determines page number and size of returned list.\n",
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/CodebaseQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/BuildStatusQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/SlaveQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/SortQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/ResultQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/PageNumberQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/PageSizeQuery"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A list of Katana builder's(config's) builds",
+                        "schema": {
+                            "title": "BuildsList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Build"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/builders/{builder}/builds/{id}": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                },
+                {
+                    "$ref": "#/parameters/BuilderPath"
+                },
+                {
+                    "$ref": "#/parameters/IdPath"
+                }
+            ],
+            "get": {
+                "summary": "Katana build's changes.",
+                "operationId": "getBuild",
+                "tags": [
+                    "builds"
+                ],
+                "description": "Gets a list of Katana build's changes. \n",
+                "responses": {
+                    "200": {
+                        "description": "A build's steps list",
+                        "schema": {
+                            "$ref": "#/definitions/Build"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Stop, cancel, stop build chain",
+                "operationId": "updateBuild",
+                "tags": [
+                    "builds"
+                ],
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/BuildBody"
+                    }
+                ],
+                "description": "Update build's state - stop, cancel, stop build chain.\n",
+                "responses": {
+                    "200": {
+                        "description": "A build",
+                        "schema": {
+                            "$ref": "#/definitions/Build"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "422": {
+                        "$ref": "#/responses/422"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/builders/{builder}/builds/{id}/changes": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                },
+                {
+                    "$ref": "#/parameters/BuilderPath"
+                },
+                {
+                    "$ref": "#/parameters/IdPath"
+                }
+            ],
+            "get": {
+                "summary": "Katana build's changes.",
+                "operationId": "getBuildChanges",
+                "description": "Gets a list of Katana build's changes. \n",
+                "tags": [
+                    "builds"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A build's steps list",
+                        "schema": {
+                            "title": "ChangesList",
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/builders/{builder}/builds/{id}/steps": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                },
+                {
+                    "$ref": "#/parameters/BuilderPath"
+                },
+                {
+                    "$ref": "#/parameters/IdPath"
+                }
+            ],
+            "get": {
+                "summary": "Katana build's steps.",
+                "operationId": "getBuildSteps",
+                "tags": [
+                    "builds"
+                ],
+                "description": "Gets a list of Katana build's steps. \n",
+                "responses": {
+                    "200": {
+                        "description": "A build's steps list",
+                        "schema": {
+                            "title": "StepsList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Step"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/builders/{builder}/builds/{id}/logs": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                },
+                {
+                    "$ref": "#/parameters/BuilderPath"
+                },
+                {
+                    "$ref": "#/parameters/IdPath"
+                }
+            ],
+            "get": {
+                "summary": "Katana build's logs.",
+                "operationId": "getBuildLogs",
+                "tags": [
+                    "builds"
+                ],
+                "description": "Gets a list of Katana build's logs. \n",
+                "responses": {
+                    "200": {
+                        "description": "A build's logs list",
+                        "schema": {
+                            "title": "LogsList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Link"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/builders/{builder}/builds/{id}/properties": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                },
+                {
+                    "$ref": "#/parameters/BuilderPath"
+                },
+                {
+                    "$ref": "#/parameters/IdPath"
+                }
+            ],
+            "get": {
+                "summary": "Katana build's properties.",
+                "operationId": "getBuildProperties",
+                "tags": [
+                    "builds"
+                ],
+                "description": "Gets a list of Katana build's properties. \n",
+                "responses": {
+                    "200": {
+                        "description": "A build's properties list",
+                        "schema": {
+                            "title": "StepsList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Property"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/builders/{builder}/builds/{id}/resumes": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                },
+                {
+                    "$ref": "#/parameters/BuilderPath"
+                },
+                {
+                    "$ref": "#/parameters/IdPath"
+                }
+            ],
+            "get": {
+                "summary": "Katana build's resumes list.",
+                "operationId": "getBuildResumes",
+                "tags": [
+                    "builds"
+                ],
+                "description": "Gets a list of Katana build's resumes. \n",
+                "responses": {
+                    "200": {
+                        "description": "A build's properties list",
+                        "schema": {
+                            "title": "ResumesList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ResumptionEntry"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/projects/{project}/builders/{builder}/slaves": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/ProjectPath"
+                },
+                {
+                    "$ref": "#/parameters/BuilderPath"
+                }
+            ],
+            "get": {
+                "summary": "Katana builder's(config's) slaves.",
+                "tags": [
+                    "slaves"
+                ],
+                "description": "Gets Katana `builder`(`config`) slaves, all of them related to this builder.\n",
+                "operationId": "getBuilderSlaves",
+                "responses": {
+                    "200": {
+                        "description": "A `builder`'s (`config`'s) slaves.",
+                        "schema": {
+                            "properties": {
+                                "build": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/Slave"
+                                    }
+                                },
+                                "verification": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/definitions/Slave"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/builds": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                }
+            ],
+            "get": {
+                "summary": "All Builds",
+                "tags": [
+                    "builds"
+                ],
+                "description": "Gets all Katana builds from build queue. Optional query param\nof **page** and **page_size** determines page number and size of returned list.\n",
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/ProjectsQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/BuildersQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/SlaveStatusQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/SlaveQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/SortQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/PageNumberQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/PageSizeQuery"
+                    }
+                ],
+                "operationId": "getBuildsQueue",
+                "responses": {
+                    "200": {
+                        "description": "An array of projects",
+                        "schema": {
+                            "title": "ProjectsList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Builder"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Cancel builds from build queue",
+                "operationId": "cancelBuilds",
+                "tags": [
+                    "builds"
+                ],
+                "description": "Cancel all build from build queue.\n",
+                "responses": {
+                    "200": {
+                        "description": "A list of cenceled builds",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Build"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "422": {
+                        "$ref": "#/responses/422"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/builders": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                }
+            ],
+            "get": {
+                "summary": "Katana all builders(configs) for all projects",
+                "operationId": "getAllBuilders",
+                "description": "Gets all builders in Katana for all the projects. Optional query param\nof **page** and **page_size** determines page number and size of returned list.\n",
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/PageNumberQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/PageSizeQuery"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of builders (configs)",
+                        "schema": {
+                            "title": "BuildersList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Builder"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                },
+                "tags": [
+                    "builders"
+                ]
+            }
+        },
+        "/slaves": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                }
+            ],
+            "get": {
+                "summary": "All available agents/slaves Katana",
+                "description": "Gets all Katana slaves lists. Optional query param\nof **page** and **page_size** determines page number and size of returned list.\n",
+                "operationId": "getAllSlaves",
+                "tags": [
+                    "slaves"
+                ],
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/SlaveStatusQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/SlaveQuery"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of projects",
+                        "schema": {
+                            "title": "ProjectsList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Slave"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Pause or unpause several slaves",
+                "description": "Pause or unpause slaves.\n",
+                "operationId": "updateSlaves",
+                "tags": [
+                    "slaves"
+                ],
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/SlaveListBody"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of projects",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Slave"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "422": {
+                        "$ref": "#/responses/422"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/slaves/{slave}": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                },
+                {
+                    "$ref": "#/parameters/SlavePath"
+                }
+            ],
+            "get": {
+                "summary": "All available agents/slaves Katana",
+                "description": "Gets all Katana slaves lists. Optional query param\nof **page** and **page_size** determines page number and size of returned list.\n",
+                "operationId": "getSlave",
+                "tags": [
+                    "slaves"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of projects",
+                        "schema": {
+                            "$ref": "#/definitions/Slave"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            },
+            "put": {
+                "summary": "Pause or unpause slave",
+                "description": "Pause or unpause slave.\n",
+                "operationId": "updateSlave",
+                "tags": [
+                    "slaves"
+                ],
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/SlaveBody"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of projects",
+                        "schema": {
+                            "$ref": "#/definitions/Slave"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "422": {
+                        "$ref": "#/responses/422"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/slaves/{slave}/builds": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                }
+            ],
+            "get": {
+                "summary": "The current builds on the specific slave",
+                "description": "Gets all current builds on for specific slave. Optional parameters\nof **page** and **page_size** determines page number and size of returned list.\n",
+                "operationId": "getSlaveBuilds",
+                "tags": [
+                    "slaves"
+                ],
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/SlavePath"
+                    },
+                    {
+                        "$ref": "#/parameters/SortQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/ResultQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/PageNumberQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/PageSizeQuery"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of projects",
+                        "schema": {
+                            "title": "SlaveBuildList",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Build"
+                            }
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        },
+        "/slaves/{slave}/builders": {
+            "parameters": [
+                {
+                    "$ref": "#/parameters/UserAgent"
+                }
+            ],
+            "get": {
+                "summary": "Slave's builders",
+                "description": "Gets all related builder to the slave. Optional query param\nof **page** and **page_size** determines page number and size of returned list.\n",
+                "operationId": "getSlaveBuilders",
+                "tags": [
+                    "builders"
+                ],
+                "parameters": [
+                    {
+                        "$ref": "#/parameters/SlavePath"
+                    },
+                    {
+                        "$ref": "#/parameters/PageNumberQuery"
+                    },
+                    {
+                        "$ref": "#/parameters/PageSizeQuery"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "An array of projects",
+                        "schema": {
+                            "$ref": "#/definitions/Slave"
+                        }
+                    },
+                    "400": {
+                        "$ref": "#/responses/400"
+                    },
+                    "401": {
+                        "$ref": "#/responses/401"
+                    },
+                    "403": {
+                        "$ref": "#/responses/403"
+                    },
+                    "500": {
+                        "$ref": "#/responses/500"
+                    },
+                    "default": {
+                        "$ref": "#/responses/default"
+                    }
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "state",
+            "description": "Katana global state api"
+        },
+        {
+            "name": "projects",
+            "description": "Katana projects api"
+        },
+        {
+            "name": "builders",
+            "description": "Katana builders api"
+        },
+        {
+            "name": "builds",
+            "description": "Katana builds api"
+        },
+        {
+            "name": "slaves",
+            "description": "Katana slave api"
+        }
+    ],
+    "responses": {
+        "400": {
+            "description": "Invalid request query string.",
+            "schema": {
+                "$ref": "#/definitions/BadRequestError"
+            }
+        },
+        "401": {
+            "description": "Unauthorized.",
+            "schema": {
+                "type": "string"
+            }
+        },
+        "403": {
+            "description": "Token validation error or resource forbidden."
+        },
+        "404": {
+            "description": "Entity doesn't exists",
+            "schema": {
+                "type": "string"
+            }
+        },
+        "422": {
+            "description": "Unprocessable entity",
+            "schema": {
+                "$ref": "#/definitions/ValidationError"
+            }
+        },
+        "500": {
+            "description": "An unexpected error occured.",
+            "schema": {
+                "$ref": "#/definitions/Error"
+            }
+        },
+        "default": {
+            "description": "An unexpected error occured.",
+            "schema": {
+                "$ref": "#/definitions/Error"
+            }
+        }
+    },
+    "definitions": {
+        "GlobalStatus": {
+            "properties": {
+                "buildsInQueueCount": {
+                    "type": "number",
+                    "format": "int32"
+                },
+                "runningBuildsCount": {
+                    "type": "number",
+                    "format": "int32"
+                },
+                "slavesCount": {
+                    "type": "number",
+                    "format": "int32"
+                },
+                "yesterdayBuildsCount": {
+                    "type": "number",
+                    "format": "int32"
+                },
+                "utc": {
+                    "type": "number",
+                    "format": "float"
+                }
+            }
+        },
+        "Builder": {
+            "title": "Builder",
+            "required": [
+                "name",
+                "project"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "Builder(config) name."
+                },
+                "friendlyName": {
+                    "type": "string",
+                    "description": "Builder(config) friendly name",
+                    "example": ""
+                },
+                "project": {
+                    "type": "string",
+                    "description": "Project name"
+                },
+                "state": {
+                    "type": "string",
+                    "description": "Build state of builder."
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string",
+                        "description": "Tag name"
+                    },
+                    "description": "List of tags related to this builder(config)"
+                }
+            },
+            "example": [
+                {
+                    "name": "proj0-ABuildVerification",
+                    "friendly_name": "ABuildVerification",
+                    "project": "Android",
+                    "state": "IDLE",
+                    "tags": [
+                        "Trunk",
+                        "4.6",
+                        "5.1"
+                    ]
+                }
+            ]
+        },
+        "Error": {
+            "title": "Error",
+            "properties": {
+                "resource": {
+                    "type": "string"
+                },
+                "field": {
+                    "type": "string"
+                },
+                "code": {
+                    "type": "string"
+                }
+            }
+        },
+        "BadRequestError": {
+            "title": "BabRequestError",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Error"
+                    }
+                }
+            }
+        },
+        "ValidationError": {
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "default": "Validation Failed"
+                },
+                "errors": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Error"
+                    }
+                }
+            }
+        },
+        "Link": {
+            "required": [
+                "name",
+                "url"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "User": {
+            "required": [
+                "login",
+                "email"
+            ],
+            "properties": {
+                "login": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "SourceStamp": {
+            "required": [
+                "branch",
+                "codebase",
+                "repository",
+                "project",
+                "revision"
+            ],
+            "properties": {
+                "branch": {
+                    "type": "string"
+                },
+                "codebase": {
+                    "type": "string"
+                },
+                "displayRepository": {
+                    "type": "string"
+                },
+                "repository": {
+                    "type": "string"
+                },
+                "project": {
+                    "type": "string"
+                },
+                "revision": {
+                    "type": "string"
+                },
+                "shortRevision": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "hasPatch": {
+                    "type": "boolean"
+                },
+                "changes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "Step": {
+            "required": [
+                "name",
+                "orderNumber"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "hidden": {
+                    "type": "boolean"
+                },
+                "status": {
+                    "type": "number",
+                    "format": "int32"
+                },
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Link"
+                    }
+                },
+                "urls": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Link"
+                    }
+                },
+                "expectations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Property"
+                    }
+                },
+                "artifacts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Link"
+                    }
+                },
+                "startedAt": {
+                    "type": "number",
+                    "format": "float"
+                },
+                "finishedAt": {
+                    "type": "number",
+                    "format": "float"
+                },
+                "result": {
+                    "type": "number",
+                    "format": "int32"
+                },
+                "orderNumber": {
+                    "type": "number",
+                    "format": "int32",
+                    "description": "Step execution number in steps chain"
+                },
+                "statusText": {
+                    "type": "string"
+                }
+            }
+        },
+        "ResumptionEntry": {
+            "properties": {
+                "elapsed": {
+                    "type": "string"
+                },
+                "finishedAt": {
+                    "type": "string"
+                },
+                "startedAt": {
+                    "type": "string"
+                },
+                "slave": {
+                    "type": "string"
+                },
+                "step": {
+                    "$ref": "#/definitions/Step"
+                }
+            }
+        },
+        "Project": {
+            "required": [
+                "name",
+                "builders"
+            ],
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "builders": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/Builder"
+                    }
+                }
+            }
+        },
+        "Build": {
+            "properties": {
+                "brids": {
+                    "type": "array",
+                    "items": {
+                        "type": "number",
+                        "format": "int32"
+                    }
+                },
+                "chainId": {
+                    "type": "string",
+                    "description": "Build chain ID."
+                },
+                "builder": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Builder(config) name."
+                        },
+                        "url": {
+                            "type": "string",
+                            "description": "Katana URL of builder details home page"
+                        },
+                        "friendlyName": {
+                            "type": "string",
+                            "description": "Builder(config) friendly name"
+                        }
+                    }
+                },
+                "number": {
+                    "type": "integer"
+                },
+                "owners": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/User"
+                    }
+                },
+                "result": {
+                    "$ref": "#/definitions/BuildResult"
+                },
+                "slave": {
+                    "properties": {
+                        "name": {
+                            "type": "string"
+                        },
+                        "friendlyName": {
+                            "type": "string"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "eta": {
+                    "type": "number",
+                    "format": "float"
+                },
+                "priority": {
+                    "type": "number",
+                    "format": "int32"
+                },
+                "currentStep": {
+                    "$ref": "#/definitions/Step"
+                },
+                "sourceStamps": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/SourceStamp"
+                    }
+                },
+                "submittedAt": {
+                    "type": "number",
+                    "format": "float"
+                },
+                "verificationStartedAt": {
+                    "type": "number",
+                    "format": "float"
+                },
+                "buildStartedAt": {
+                    "type": "number",
+                    "format": "float"
+                },
+                "statusText": {
+                    "type": "string"
+                },
+                "url": {
+                    "$ref": "#/definitions/Link"
+                },
+                "resumptionCount": {
+                    "type": "number",
+                    "format": "int32"
+                },
+                "resumedAt": {
+                    "type": "string",
+                    "format": "dateTime"
+                },
+                "resumeStepNumber": {
+                    "type": "integer",
+                    "format": "int32"
+                },
+                "resumptionSlavePool": {
+                    "type": "string"
+                }
+            }
+        },
+        "Slave": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "fiendlyName": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "connected",
+                        "paused",
+                        "idle"
+                    ]
+                },
+                "admin": {
+                    "$ref": "#/definitions/User"
+                },
+                "eid": {
+                    "type": "number"
+                },
+                "fqdn": {
+                    "type": "string"
+                },
+                "lastMessageDate": {
+                    "type": "string",
+                    "format": "dateTime"
+                },
+                "slaveManagerUrl": {
+                    "type": "string"
+                },
+                "version": {
+                    "type": "string"
+                },
+                "runningBuildsCount": {
+                    "type": "number",
+                    "format": "int32"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "gracefulShutdown": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "Property": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                }
+            }
+        },
+        "BuilderPayload": {
+            "properties": {
+                "operation": {
+                    "$ref": "#/definitions/BuilderOperation"
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Builder name"
+                },
+                "priority": {
+                    "type": "string",
+                    "description": "Build priority",
+                    "enum": [
+                        "HIGH",
+                        "MEDIUM",
+                        "LOW"
+                    ]
+                },
+                "branch": {
+                    "type": "string"
+                },
+                "revision": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "slave": {
+                    "default": "default",
+                    "type": "string"
+                }
+            }
+        },
+        "BuildersPayload": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/BuilderPayload"
+            }
+        },
+        "BuildPayload": {
+            "properties": {
+                "operation": {
+                    "$ref": "#/definitions/BuildOperation"
+                }
+            }
+        },
+        "BuilderOperation": {
+            "type": "string",
+            "enum": [
+                "STOP",
+                "RUN"
+            ]
+        },
+        "BuildOperation": {
+            "type": "string",
+            "enum": [
+                "REBUILD",
+                "REBUILD_CHAIN",
+                "CANCEL",
+                "STOP",
+                "STOP_CHAIN"
+            ]
+        },
+        "BuildResult": {
+            "type": "string",
+            "enum": [
+                "SUCCESS",
+                "WARNINGS",
+                "FAILURE",
+                "SKIPPED",
+                "EXCEPTION",
+                "RETRY",
+                "CANCELED",
+                "NOT_REBUILT",
+                "DEPENDENCY_FAILURE",
+                "RESUME",
+                "MERGED",
+                "INTERRUPTED"
+            ]
+        },
+        "SlavePayload": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "operation": {
+                    "type": "string",
+                    "enum": [
+                        "START",
+                        "PAUSE"
+                    ]
+                }
+            }
+        }
+    }
+}
