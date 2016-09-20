@@ -86,7 +86,7 @@ _request_:
 /builders/{name}/builds
 ```
 _response_:
-```json
+```
 [{
 	proj0-ABuildVerification: {
 		currentBuilds: [
