@@ -240,7 +240,7 @@ class Trigger(ResumeBuild):
                             num = build['number']
                             url = yield master.status.getURLForBuildRequest(build['brid'], bn, num,
                                                                             friendly_name, self.sourceStamps)
-                            self.step_status.addURL(url['text'], url['path'], *getBuildResults(build))
+                            self.step_status.addDependencies(url['text'], url['path'], *getBuildResults(build))
             
             def add_links(res):
                 # reverse the dictionary lookup for brid to builder name
@@ -256,7 +256,7 @@ class Trigger(ResumeBuild):
                                 friendly_name = None
                             num = build['number']
                             url = master.status.getURLForBuild(bn, num, friendly_name, self.sourceStamps)
-                            self.step_status.addURL(url['text'], url['path'], *getBuildResults(build))
+                            self.step_status.addDependencies(url['text'], url['path'], *getBuildResults(build))
 
             builddicts = [master.db.builds.getBuildsAndResultForRequest(br) for br in brids.values()]
             res_builds = yield defer.DeferredList(builddicts, consumeErrors=True)

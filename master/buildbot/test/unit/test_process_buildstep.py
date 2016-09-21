@@ -120,6 +120,45 @@ class TestBuildStep(steps.BuildStepMixin, config.ConfigErrorsMixin, unittest.Tes
         self.assertRaisesConfigError("__init__ got unexpected keyword argument(s) ['oogaBooga']",
                 lambda: buildstep.BuildStep(oogaBooga=5))
 
+    def test_UrlKeywordReplacement(self):
+        """
+        Makes sure that URLs are being added properly and that keywords in a URL are replaced with actual values
+        """
+        class FakeFinishableStatus():
+            urls = []
+            def addURL(self, name, url):
+                self.urls.append(dict(url = url, name = name))
+
+
+        url_list = [{"url":"http://www.url-<<BuilderName>>.com", "name":"urlLabel1"}, {"url":"https://url<<BuildNumber>>.com", "name":"urlLabel2"}]
+        corrected_url_list = [{"url":"http://www.url-testName.com", "name":"urlLabel1"}, {"url":"https://url1000.com", "name":"urlLabel2"}]
+
+        step = buildstep.LoggingBuildStep(urls=url_list)
+        step.build = mock.Mock()
+        step.build.builder.name = "testName"
+        step.build.build_status.number = 1000
+        step.setStepStatus(FakeFinishableStatus())
+        # The URLs are set in the CommandComplete step
+        step.commandComplete(None)
+
+        self.assertEquals(step.step_status.urls, corrected_url_list)
+
+    def test_unexpectedUrlFormat(self):
+        """
+        When LoggingBuildStep is passed a non-dictionary URL, it reports a config error.
+        """
+        error = "The 'urls' parameter must be a list of dictionaries, in the format [{\"name\": name, \"url\": url}]"
+        self.assertRaisesConfigError(error,
+                                     lambda: buildstep.LoggingBuildStep(urls="http://www.url.com"))
+
+    def test_incorrectUrlSyntax(self):
+        """
+        When LoggingBuildStep is passed a URL without starting with http:// or similar, it reports a config error
+        """
+        url_list = [{"url":"http://www.url1.com", "name":"urlLabel1"}, {"url":"https://url2.com", "name":"urlLabel2"}, {"url":"www.url3.com", "name":"urlLabel3"}]
+        self.assertRaisesConfigError('The URL for urlLabel3 is in an incorrect format (www.url3.com must start with http:// or https://)',
+                                     lambda: buildstep.LoggingBuildStep(urls=url_list))
+
 
     def test_getProperty(self):
         bs = buildstep.BuildStep()

@@ -47,7 +47,7 @@ class BuildStepStatus(styles.Versioned):
     # corresponding BuildStep has started.
     implements(interfaces.IBuildStepStatus, interfaces.IStatusEvent)
 
-    persistenceVersion = 4
+    persistenceVersion = 5
     persistenceForgets = ( 'wasUpgraded', )
 
     started = None
@@ -62,6 +62,9 @@ class BuildStepStatus(styles.Versioned):
     statistics = {}
     step_number = None
     hidden = False
+    urls = []
+    artifacts = []
+    dependencies = []
 
     def __init__(self, parent, master, step_number, step_type):
         assert interfaces.IBuildStatus(parent)
@@ -69,7 +72,9 @@ class BuildStepStatus(styles.Versioned):
         self.step_number = step_number
         self.hidden = False
         self.logs = []
-        self.urls = {}
+        self.urls = []
+        self.artifacts = []
+        self.dependencies = []
         self.watchers = []
         self.updates = {}
         self.finishedWatchers = []
@@ -108,7 +113,14 @@ class BuildStepStatus(styles.Versioned):
         return self.logs
 
     def getURLs(self):
-        return self.urls.copy()
+        # running list() on a list copies it
+        return list(self.urls)
+
+    def getArtifacts(self):
+        return list(self.artifacts)
+
+    def getDependencies(self):
+        return list(self.dependencies)
 
     def getStepType(self):
         if hasattr(self, "step_type"):
@@ -262,11 +274,14 @@ class BuildStepStatus(styles.Versioned):
         for w in self.watchers:
             w.logFinished(self.build, self, log)
 
-    def addURL(self, name, url, results=None):
-        self.urls[name] = url
-        if results is not None:
-            self.urls[name] = {'url': url, 'results': results}
+    def addURL(self, name, url):
+        self.urls.append(dict(url=url, name=name))
 
+    def addArtifacts(self, name, url):
+        self.artifacts.append(dict(url=url, name=name))
+
+    def addDependencies(self, name, url, results):
+        self.dependencies.append(dict(url=url, name=name, results=results))
 
     def setText(self, text):
         self.text = text
@@ -373,6 +388,48 @@ class BuildStepStatus(styles.Versioned):
             self.hidden = False
         self.wasUpgraded = True
 
+    def upgradeToVersion5(self):
+        # Convert old URL dictionary into new URL/artifacts/dependencies arrays
+        newUrls = []
+        self.dependencies = []
+        if type(self.urls) == dict:
+            for urlKey in self.urls:
+                value = self.urls[urlKey]
+                if type(value) == dict:
+                    self.dependencies.append(dict(name=urlKey, url=value['url'], results=value['results']))
+                else:
+                    newUrls.append(dict(name=urlKey, url=value))
+
+        self.urls = []
+        self.artifacts = []
+        # If it's an artifact-based step, all former URLs should be treated as artifacts
+        if hasattr(self, "step_type"):
+            if ("buildbot.steps.artifact" in self.step_type):
+                self.artifacts = newUrls
+            else:
+                self.urls = newUrls
+
+        self.wasUpgraded = True
+
+        ###### The following code is for if this version needs to be reverted
+        # def upgradeToVersion6(self):
+        #    # Convert old URL dictionary into new URL/artifacts/dependencies arrays
+        #    oldUrls = []
+        #    oldUrls.extend(self.urls)
+        #    oldUrls.extend(self.artifacts)
+        #    newUrls = {}
+        #    for u in oldUrls:
+        #        name = u['name']
+        #        url = u['url']
+        #        newUrls[name] = url
+        #    for u2 in self.dependencies:
+        #        name = u2['name']
+        #        url = u2['url']
+        #        results = u2['results']
+        #        newUrls[name] = dict(url=url, results=results)
+        #    self.urls = newUrls
+        #    self.wasUpgraded = True
+
     def asDict(self, request=None):
         from buildbot.status.web.base import getCodebasesArg
         result = {}
@@ -392,17 +449,16 @@ class BuildStepStatus(styles.Versioned):
         result['hidden'] = self.hidden
 
         args = getCodebasesArg(request)
-        result['logs'] = [[l.getName(),
-            self.build.builder.status.getURLForThing(l) + args]
-                for l in self.getLogs()]
+        result['logs'] = []
+        for log in self.getLogs():
+            result['logs'].append(dict(name=log.getName(), url="%s%s" % (self.build.builder.status.getURLForThing(log), args)))
 
         result["urls"] = self.getURLs()
-
+        result["artifacts"] = self.getArtifacts()
+        result["dependencies"] = self.getDependencies()
 
         if request is not None:
             from buildbot.status.web.base import path_to_step
             result['url'] = path_to_step(request, self)
 
         return result
-
-

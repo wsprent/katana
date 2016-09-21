@@ -67,12 +67,10 @@ class TestFindPreviousSuccessfulBuild(steps.BuildStepMixin, config.ConfigErrorsM
 
         self.build.builder.builder_status.getFriendlyName = lambda: "A"
 
-        def addURL(name, url, results=None):
-            self.step_status.urls[name] = url
-            if results is not None:
-                self.step_status.urls[name] = {'url': url, 'results': results}
+        def addArtifacts(name, url):
+            self.step_status.urls.append( dict(name=name, url=url) )
 
-        self.step_status.addURL = addURL
+        self.step_status.addArtifacts = addArtifacts
 
         fake_br = fakedb.BuildRequest(id=1, buildsetid=1, buildername="A", complete=1, results=0)
         fake_ss = fakedb.SourceStamp(id=1, branch='master', repository='https://url/project',
@@ -112,7 +110,7 @@ class TestFindPreviousSuccessfulBuild(steps.BuildStepMixin, config.ConfigErrorsM
 
 
         self.expectOutcome(result=SUCCESS, status_text=['Found previous successful build.'])
-        self.expectURLS({'A #1': 'baseurl/builders/A/builds/1?c_branch=master'})
+        self.expectURLS([{'name': 'A #1', 'url': 'baseurl/builders/A/builds/1?c_branch=master'}])
         return self.runStep()
 
     def test_force_rebuild(self):

@@ -42,7 +42,7 @@ class TestBuildStepStatus(unittest.TestCase):
         b.status = s
         return s
 
-    def testBuildStepNumbers(self):
+    def test_buildStepNumbers(self):
         b = self.setupBuilder('builder_1')
         bs = b.newBuild()
         self.assertEquals(0, bs.getNumber())
@@ -54,7 +54,7 @@ class TestBuildStepStatus(unittest.TestCase):
         self.assertEquals(1, bss2.asDict()['step_number'])
         self.assertEquals([bss1, bss2], bs.getSteps())
 
-    def testLogDict(self):
+    def test_bogDict(self):
         b = self.setupBuilder('builder_1')
         self.setupStatus(b)
         bs = b.newBuild()
@@ -63,11 +63,11 @@ class TestBuildStepStatus(unittest.TestCase):
         bss1.addLog('log_1')
         self.assertEquals(
             bss1.asDict()['logs'],
-            [['log_1', ('http://localhost:8080/projects/Project/builders/builder_1/'
-                        'builds/0/steps/step_1/logs/log_1')]]
+            [{'name': 'log_1', 'url': 'http://localhost:8080/projects/Project/builders/builder_1/'
+                        'builds/0/steps/step_1/logs/log_1'}]
             )
 
-    def testaddHtmlLog_with_no_content_type(self):
+    def test_addHtmlLog_with_no_content_type(self):
         b = self.setupBuilder('builder_1')
         self.setupStatus(b)
         bs = b.newBuild()
@@ -77,13 +77,13 @@ class TestBuildStepStatus(unittest.TestCase):
 
         self.assertEquals(
             bss1.asDict()['logs'],
-            [['htmllog_1', ('http://localhost:8080/projects/Project/builders/builder_1/'
-                        'builds/0/steps/step_1/logs/htmllog_1')]]
+            [{'name':'htmllog_1', "url":'http://localhost:8080/projects/Project/builders/builder_1/'
+                        'builds/0/steps/step_1/logs/htmllog_1'}]
             )
         self.assertEqual(len(bss1.logs), 1)
         self.assertEqual(bss1.logs[0].content_type, None)
 
-    def testaddHtmlLog_with_content_type(self):
+    def test_addHtmlLog_with_content_type(self):
         b = self.setupBuilder('builder_1')
         self.setupStatus(b)
         bs = b.newBuild()
@@ -95,7 +95,7 @@ class TestBuildStepStatus(unittest.TestCase):
         self.assertEqual(len(bss1.logs), 1)
         self.assertEqual(bss1.logs[0].content_type, content_type)
 
-    def testaddHtmlLog_with_content_type_multiple_logs(self):
+    def test_addHtmlLog_with_content_type_multiple_logs(self):
         b = self.setupBuilder('builder_1')
         self.setupStatus(b)
         bs = b.newBuild()
@@ -111,3 +111,53 @@ class TestBuildStepStatus(unittest.TestCase):
         self.assertEqual(bss1.logs[0].content_type, content_type1)
         self.assertEqual(bss1.logs[1].content_type, None)
         self.assertEqual(bss1.logs[2].content_type, content_type2)
+
+    def test_addURLs(self):
+        b = self.setupBuilder('builder_1')
+        self.setupStatus(b)
+        bs = b.newBuild()
+        bss1 = bs.addStepWithName('step_1', None)
+        bss1.stepStarted()
+
+        urlList = []
+        urlList.append(dict(name="URL", url="http://www.url"))
+        urlList.append(dict(name="URL2", url="http://www.url2"))
+
+        bss1.addURL("URL", "http://www.url")
+        bss1.addURL("URL2", "http://www.url2")
+        self.assertEquals(bss1.getURLs(), urlList)
+
+    def test_addArtifacts(self):
+        b = self.setupBuilder('builder_1')
+        self.setupStatus(b)
+        bs = b.newBuild()
+        bss1 = bs.addStepWithName('step_1', None)
+        bss1.stepStarted()
+
+        artifactList = []
+        artifactList.append(dict(name="Artifact1", url="http://www.artifact.url"))
+        artifactList.append(dict(name="Artifact2", url="http://www.secondartifact.url"))
+        urlList = []
+        urlList.append(dict(name="URL", url="http://www.url"))
+
+        bss1.addArtifacts("Artifact1", "http://www.artifact.url")
+        bss1.addArtifacts("Artifact2", "http://www.secondartifact.url")
+        #ensure that URLs are being separated properly
+        bss1.addURL("URL", "http://www.url")
+        self.assertEquals(bss1.getArtifacts(), artifactList)
+        self.assertEquals(bss1.getURLs(), urlList)
+
+    def test_addDependencyLinks(self):
+        b = self.setupBuilder('builder_1')
+        self.setupStatus(b)
+        bs = b.newBuild()
+        bss1 = bs.addStepWithName('step_1', None)
+        bss1.stepStarted()
+
+        depList = []
+        depList.append(dict(name="Dependency", url="http://www.dep.link", results=0))
+        depList.append(dict(name="Dependency2", url="http://www.dep.link2", results=1))
+
+        bss1.addDependencies("Dependency", "http://www.dep.link", 0)
+        bss1.addDependencies("Dependency2", "http://www.dep.link2", 1)
+        self.assertEquals(bss1.getDependencies(), depList)

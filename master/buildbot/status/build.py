@@ -594,12 +594,10 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
         if self.artifacts is not None:
             return self.artifacts
 
-        artifacts = {}
+        artifacts = []
         for s in self.steps:
-            if len(s.urls) > 0:
-                for name, url in s.urls.iteritems():
-                    if isinstance(url, basestring):
-                        artifacts[name] = url
+            if len(s.artifacts) > 0:
+                artifacts.extend(s.artifacts)
 
         if len(artifacts) > 0:
             # Only cache when we have completed the build and no futher artifacts
@@ -698,8 +696,9 @@ class BuildStatus(styles.Versioned, properties.PropertiesMixin):
         # TODO(maruel): Add.
         #result['test_results'] = self.getTestResults()
         args = getCodebasesArg(request)
-        result['logs'] = [[l.getName(),
-                           self.master.status.getURLForThing(l) + args] for l in self.getLogs()]
+        result['logs'] = []
+        for log in self.getLogs():
+            result['logs'].append(dict(name=log.getName(), url="%s%s" % (self.master.status.getURLForThing(log), args)))
 
         result['isWaiting'] = False
 

@@ -360,24 +360,31 @@ class StatusResourceBuild(HtmlResource):
 
             step['link'] = path_to_step(req, s)
             step['text'] = " ".join(s.getText())
-            urls = []
-            getUrls = s.getURLs().items()
-            for k,v in s.getURLs().items():
-                if isinstance(v, dict):
-                    if 'results' in v.keys() and v['results'] in css_classes:
-                        url_dict = dict(logname=k, url=v['url'] + codebases_arg, results=css_classes[v['results']])
-                    else:
-                        url_dict = dict(logname=k, url=v['url'] + codebases_arg)
-                else:
-                    url_dict = dict(logname=k, url=v + codebases_arg)
-                urls.append(url_dict)
 
-            step['urls'] = urls
+            step['urls'] = []
+            for url in s.getURLs():
+                newUrl = dict(name=url["name"], url=url["url"] + codebases_arg)
+                step['urls'].append(newUrl)
+
+
+            step['artifacts'] = []
+            for artif in s.getArtifacts():
+                newArtifact = dict(name=artif["name"], url=artif["url"] + codebases_arg)
+                step['artifacts'].append(newArtifact)
+
+            step['dependencies'] = []
+            for dep in s.getDependencies():
+                if dep["results"] in css_classes:
+                    newDependency = dict(name=dep["name"], url=dep["url"] + codebases_arg,
+                                    results=css_classes[dep["results"]])
+                else:
+                    newDependency = dict(name=dep["name"], url=dep["url"] + codebases_arg)
+                step['dependencies'].append(newDependency)
 
             step['logs']= []
             for l in s.getLogs():
                 logname = l.getName()
-                step['logs'].append({ 'link': req.childLink("steps/%s/logs/%s%s" %
+                step['logs'].append({ 'url': req.childLink("steps/%s/logs/%s%s" %
                                            (urllib.quote(s.getName(), safe=''),
                                             urllib.quote(logname, safe=''), codebases_arg)),
                                       'name': logname })
